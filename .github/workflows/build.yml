@@ -1,0 +1,45 @@
+name: Build exe
+
+on:
+  push:
+    tags: ["v*"]        # day tag v1.0.0 -> build + tao Release
+  workflow_dispatch:    # hoac bam "Run workflow" de build thu (file nam o Artifacts)
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cai thu vien
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Kiem tra import + OCR
+        run: python tools/smoke_test.py
+        continue-on-error: true   # may chu GitHub co the khong co goi OCR
+
+      - name: Build exe
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name ScreenTranslator
+          --collect-all winocr --collect-all winrt
+          --hidden-import pystray._win32
+          screentrans/__main__.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScreenTranslator
+          path: dist/ScreenTranslator.exe
+
+      - name: Tao Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ScreenTranslator.exe
+          generate_release_notes: true
