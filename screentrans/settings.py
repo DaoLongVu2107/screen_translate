@@ -4,11 +4,15 @@ import threading
 import tkinter as tk
 from tkinter import colorchooser, filedialog, font as tkfont, messagebox, ttk
 
+import webbrowser
+
+from .ai_translator import PROVIDERS as AI_PROVIDERS
 from .config import DEFAULTS, HOTKEY_NAMES, LANGUAGES
 
 POSITIONS = {"below": "Bên dưới vùng chọn", "above": "Bên trên vùng chọn", "over": "Đè lên vùng chọn"}
 OCR_ENGINES = {"windows": "Windows OCR (có sẵn, nhanh)", "tesseract": "Tesseract"}
-TRANSLATORS = {"google": "Google Dịch (miễn phí)", "deepl": "DeepL (cần API key)"}
+TRANSLATORS = {"google": "Google Dịch (miễn phí)", "deepl": "DeepL (cần API key)",
+               **{k: f"AI – {v[0]}" for k, v in AI_PROVIDERS.items()}}
 
 
 class _Choice:
@@ -109,10 +113,136 @@ class SettingsWindow:
 
     def _tab_translator(self, f):
         self.translator = _Choice(f, TRANSLATORS, self.cfg["translator"])
+        self.translator.widget.bind("<<ComboboxSelected>>", lambda e: self._show_engine())
         self._row(f, 0, "Máy dịch", self.translator.widget)
+
+        # DeepL
+        self.deepl_frame = ttk.Frame(f)
+        self.deepl_frame.columnconfigure(1, weight=1)
         self.deepl_key = tk.StringVar(value=self.cfg["deepl_api_key"])
-        self._row(f, 1, "DeepL API key", ttk.Entry(f, textvariable=self.deepl_key, show="•"),
+        self._row(self.deepl_frame, 0, "DeepL API key", ttk.Entry(self.deepl_frame, textvariable=self.deepl_key, show="•"),
                   "Lấy miễn phí tại deepl.com/pro-api (gói Free).")
+
+        # AI: moi nha cung cap co key + model rieng
+        self.ai_store = copy.deepcopy(self.cfg["ai"])
+        self.ai_frame = af = ttk.Frame(f)
+        af.columnconfigure(1, weight=1)
+        self.ai_key = tk.StringVar()
+        key_box = ttk.Frame(af)
+        ttk.Entry(key_box, textvariable=self.ai_key, show="•").pack(side="left", fill="x", expand=True)
+        ttk.Button(key_box, text="Lấy key", command=self._open_key_page).pack(side="left", padx=(4, 0))
+        self._row(af, 0, "API key", key_box)
+
+        self.ai_model = tk.StringVar()
+        model_box = ttk.Frame(af)
+        self.model_combo = ttk.Combobox(model_box, textvariable=self.ai_model, width=30)
+        self.model_combo.pack(side="left", fill="x", expand=True)
+        self.list_btn = ttk.Button(model_box, text="Tải danh sách", command=self._fetch_models)
+        self.list_btn.pack(side="left", padx=(4, 0))
+        self._row(af, 1, "Model", model_box, "Có thể gõ tên model bất kỳ. Bấm “Tải danh sách” để lấy "
+                                             "các model mới nhất bằng key của bạn.")
+
+        self.ai_context = tk.IntVar(value=self.cfg.get("ai_context_lines", 3))
+        self._row(af, 3, "Số câu trước gửi kèm",
+                  ttk.Spinbox(af, from_=0, to=10, textvariable=self.ai_context, width=8),
+                  "Giúp AI hiểu mạch hội thoại, xưng hô nhất quán. 0 = không gửi.")
+
+        ttk.Label(af, text="Ghi chú cho AI").grid(row=5, column=0, sticky="nw", pady=5)
+        self.ai_notes = tk.Text(af, height=4, width=40, wrap="word", font=("Segoe UI", 9))
+        self.ai_notes.insert("1.0", self.cfg.get("ai_notes", ""))
+        self.ai_notes.grid(row=5, column=1, sticky="we", pady=5)
+        ttk.Label(af, text="Ví dụ: “Doctor dịch là Tiến sĩ; giữ nguyên tên nhân vật; giọng văn trẻ trung.”",
+                  foreground="#777", wraplength=380).grid(row=6, column=1, sticky="w")
+
+        test_box = ttk.Frame(af)
+        self.test_btn = ttk.Button(test_box, text="Thử dịch", command=self._test_ai)
+        self.test_btn.pack(side="left")
+        self.test_result = ttk.Label(test_box, text="", wraplength=300)
+        self.test_result.pack(side="left", padx=8)
+        test_box.grid(row=7, column=1, sticky="w", pady=(8, 0))
+
+        self._current_ai = None
+        self._show_engine()
+
+    def _save_ai_fields(self):
+        if self._current_ai:
+            self.ai_store[self._current_ai] = {"api_key": self.ai_key.get().strip(),
+                                               "model": self.ai_model.get().strip()}
+
+    def _show_engine(self):
+        self._save_ai_fields()
+        engine = self.translator.get()
+        self.deepl_frame.grid_forget()
+        self.ai_frame.grid_forget()
+        if engine == "deepl":
+            self.deepl_frame.grid(row=1, column=0, columnspan=2, sticky="we")
+        elif engine in AI_PROVIDERS:
+            self.ai_frame.grid(row=1, column=0, columnspan=2, sticky="we")
+            data = self.ai_store.get(engine, {})
+            self.ai_key.set(data.get("api_key", ""))
+            self.ai_model.set(data.get("model") or AI_PROVIDERS[engine][1][0])
+            self.model_combo.configure(values=AI_PROVIDERS[engine][1])
+            self.test_result.configure(text="")
+        self._current_ai = engine if engine in AI_PROVIDERS else None
+
+    def _open_key_page(self):
+        if self._current_ai:
+            webbrowser.open(AI_PROVIDERS[self._current_ai][2])
+
+    def _run_bg(self, func, done):
+        """Chay func() o luong nen roi goi done(ket_qua, loi) tren luong giao dien."""
+        box = {}
+
+        def work():
+            try:
+                box["result"] = func()
+            except Exception as e:
+                box["error"] = e
+        t = threading.Thread(target=work, daemon=True)
+        t.start()
+
+        def wait():
+            if not self.win.winfo_exists():
+                return
+            if t.is_alive():
+                self.win.after(100, wait)
+            else:
+                done(box.get("result"), box.get("error"))
+        wait()
+
+    def _fetch_models(self):
+        from .ai_translator import list_models
+        provider, key = self._current_ai, self.ai_key.get().strip()
+        if not key:
+            messagebox.showinfo("Cài đặt", "Nhập API key trước.", parent=self.win)
+            return
+        self.list_btn.configure(state="disabled", text="Đang tải…")
+
+        def done(models, err):
+            self.list_btn.configure(state="normal", text="Tải danh sách")
+            if err:
+                messagebox.showerror("Cài đặt", f"Không tải được danh sách model:\n{err}", parent=self.win)
+            elif models:
+                self.model_combo.configure(values=models)
+                self.model_combo.event_generate("<Down>")
+        self._run_bg(lambda: list_models(provider, key), done)
+
+    def _test_ai(self):
+        from .ai_translator import AiTranslator
+        provider = self._current_ai
+        key, model = self.ai_key.get().strip(), self.ai_model.get().strip()
+        dst = LANGUAGES[self.dst.get()][0]
+        self.test_btn.configure(state="disabled")
+        self.test_result.configure(text="Đang thử…", foreground="#777")
+
+        def done(result, err):
+            self.test_btn.configure(state="normal")
+            if err:
+                self.test_result.configure(text=f"Lỗi: {err}"[:200], foreground="#c00")
+            else:
+                self.test_result.configure(text=f"OK: {result}", foreground="#080")
+        self._run_bg(lambda: AiTranslator(provider, key, model, "English", dst,
+                                          context_lines=0).translate("Hello, how are you today?"), done)
 
     def _tab_appearance(self, f):
         o = self.cfg["overlay"]
@@ -212,6 +342,10 @@ class SettingsWindow:
         c["upscale"] = float(self.upscale.get())
         c["translator"] = self.translator.get()
         c["deepl_api_key"] = self.deepl_key.get().strip()
+        self._save_ai_fields()
+        c["ai"] = copy.deepcopy(self.ai_store)
+        c["ai_notes"] = self.ai_notes.get("1.0", "end").strip()
+        c["ai_context_lines"] = int(self.ai_context.get())
         o = c["overlay"]
         o["position"] = self.position.get()
         o["font_family"] = self.font_family.get()
@@ -235,6 +369,9 @@ class SettingsWindow:
             return
         if cfg["translator"] == "deepl" and not cfg["deepl_api_key"]:
             messagebox.showerror("Cài đặt", "Cần nhập DeepL API key.", parent=self.win)
+            return
+        if cfg["translator"] in AI_PROVIDERS and not cfg["ai"][cfg["translator"]]["api_key"]:
+            messagebox.showerror("Cài đặt", "Cần nhập API key cho máy dịch AI.", parent=self.win)
             return
         self.on_save(cfg)
         self.close()

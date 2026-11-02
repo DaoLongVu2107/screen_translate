@@ -46,8 +46,16 @@ DEFAULTS = {
     "target_lang": "vi",
     "ocr_engine": "windows",          # "windows" hoac "tesseract"
     "tesseract_cmd": "C:/Program Files/Tesseract-OCR/tesseract.exe",
-    "translator": "google",           # "google" hoac "deepl"
+    "translator": "google",           # google | deepl | claude | openai | gemini | grok
     "deepl_api_key": "",
+    "ai": {
+        "claude": {"api_key": "", "model": "claude-opus-5-5"},
+        "openai": {"api_key": "", "model": "gpt-5.4-mini"},
+        "gemini": {"api_key": "", "model": "gemini-flash-latest"},
+        "grok": {"api_key": "", "model": "grok-4.3"},
+    },
+    "ai_notes": "",                   # bang ten rieng / van phong cho AI
+    "ai_context_lines": 3,            # so cau truoc gui kem de AI hieu ngu canh
     "interval_ms": 600,               # chu ky chup man hinh khi dich lien tuc
     "change_threshold": 0.02,         # muc thay doi anh toi thieu de OCR lai (0..1)
     "upscale": 2.0,                   # phong to anh truoc OCR, giup doc chu nho

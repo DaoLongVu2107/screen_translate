@@ -34,9 +34,20 @@ Mọi phím tắt đều đổi được trong phần Cài đặt.
 4. Bấm `Alt + S` (hoặc chuột phải icon ở khay → **Mở cài đặt**) để chỉnh:
    - **Ngôn ngữ**: ngôn ngữ gốc và ngôn ngữ cần dịch sang
    - **Nhận dạng chữ**: Windows OCR hoặc Tesseract, tốc độ quét
-   - **Dịch**: Google Dịch (miễn phí) hoặc DeepL
+   - **Dịch**: Google Dịch (miễn phí), DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
    - **Giao diện**: phông chữ, cỡ chữ, màu, độ trong suốt, vị trí khung dịch
    - **Phím tắt**
+
+## Dịch bằng AI
+
+AI dịch tự nhiên hơn hẳn, hiểu mạch hội thoại, xưng hô đúng và giữ tên riêng nhất quán.
+
+1. Mở Cài đặt → tab **Dịch** → chọn một máy dịch AI.
+2. Bấm **Lấy key** để mở trang tạo API key của nhà cung cấp, dán key vào ô **API key**.
+3. Chọn model (bấm **Tải danh sách** để xem các model mới nhất), rồi bấm **Thử dịch** để kiểm tra.
+4. Có thể ghi chú cho AI, ví dụ: *“Doctor dịch là Tiến sĩ; giữ nguyên tên nhân vật”*.
+
+Phí AI tính theo lượng chữ và trả trực tiếp cho nhà cung cấp. App chỉ gọi AI khi chữ trên màn hình thay đổi.
 
 ## Mẹo
 
