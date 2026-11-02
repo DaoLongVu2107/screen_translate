@@ -7,29 +7,52 @@ import sys
 
 log = logging.getLogger(__name__)
 
+# ma -> (ten hien thi, ngon ngu Windows OCR, ngon ngu Tesseract, ma Google)
+LANGUAGES = {
+    "en": ("Tiếng Anh", "en-US", "eng", "en"),
+    "ja": ("Tiếng Nhật", "ja", "jpn", "ja"),
+    "zh-CN": ("Tiếng Trung (giản thể)", "zh-Hans-CN", "chi_sim", "zh-CN"),
+    "zh-TW": ("Tiếng Trung (phồn thể)", "zh-Hant-TW", "chi_tra", "zh-TW"),
+    "ko": ("Tiếng Hàn", "ko", "kor", "ko"),
+    "ru": ("Tiếng Nga", "ru", "rus", "ru"),
+    "fr": ("Tiếng Pháp", "fr-FR", "fra", "fr"),
+    "de": ("Tiếng Đức", "de-DE", "deu", "de"),
+    "es": ("Tiếng Tây Ban Nha", "es-ES", "spa", "es"),
+    "pt": ("Tiếng Bồ Đào Nha", "pt-BR", "por", "pt"),
+    "it": ("Tiếng Ý", "it-IT", "ita", "it"),
+    "th": ("Tiếng Thái", "th", "tha", "th"),
+    "vi": ("Tiếng Việt", "vi", "vie", "vi"),
+}
+
+HOTKEY_NAMES = {
+    "select_region": "Chọn vùng dịch",
+    "toggle_auto": "Tạm dừng / tiếp tục",
+    "translate_once": "Dịch lại ngay",
+    "toggle_overlay": "Ẩn / hiện khung dịch",
+    "open_settings": "Mở cài đặt",
+    "quit": "Thoát",
+}
+
 DEFAULTS = {
     "hotkeys": {
-        "select_region": "alt+q",    # chon vung + bat dich lien tuc
-        "toggle_auto": "alt+w",      # tam dung / tiep tuc dich lien tuc
-        "translate_once": "alt+e",   # dich lai vung hien tai 1 lan
-        "toggle_overlay": "alt+h",   # an / hien khung dich
+        "select_region": "alt+q",
+        "toggle_auto": "alt+w",
+        "translate_once": "alt+e",
+        "toggle_overlay": "alt+h",
+        "open_settings": "alt+s",
         "quit": "ctrl+alt+x",
     },
-    # Ngon ngu cho OCR cua Windows: en-US, ja, ko, zh-Hans-CN, zh-Hant-TW, ...
+    "source_lang": "en",
+    "target_lang": "vi",
     "ocr_engine": "windows",          # "windows" hoac "tesseract"
-    "ocr_lang": "en-US",
     "tesseract_cmd": "C:/Program Files/Tesseract-OCR/tesseract.exe",
-    "tesseract_lang": "eng",          # eng, jpn, chi_sim, kor, ...
-    # Ngon ngu cho may dich (ma Google): auto, en, ja, ko, zh-CN, vi, ...
     "translator": "google",           # "google" hoac "deepl"
     "deepl_api_key": "",
-    "source_lang": "auto",
-    "target_lang": "vi",
     "interval_ms": 600,               # chu ky chup man hinh khi dich lien tuc
     "change_threshold": 0.02,         # muc thay doi anh toi thieu de OCR lai (0..1)
     "upscale": 2.0,                   # phong to anh truoc OCR, giup doc chu nho
     "overlay": {
-        "position": "below",          # below | above | over (de len vung chon)
+        "position": "below",          # below | above | over
         "font_family": "Segoe UI",
         "font_size": 15,
         "fg": "#FFFFFF",
@@ -39,6 +62,10 @@ DEFAULTS = {
         "show_original": False,
     },
 }
+
+
+def lang_info(code: str):
+    return LANGUAGES.get(code, LANGUAGES["en"])
 
 
 def app_dir() -> str:

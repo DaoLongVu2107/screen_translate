@@ -53,6 +53,8 @@ class TesseractOcr:
 
 
 def create(cfg: dict):
+    from .config import lang_info
+    _, win_lang, tess_lang, _ = lang_info(cfg["source_lang"])
     if cfg["ocr_engine"] == "tesseract":
-        return TesseractOcr(cfg["tesseract_cmd"], cfg["tesseract_lang"])
-    return WindowsOcr(cfg["ocr_lang"])
+        return TesseractOcr(cfg["tesseract_cmd"], tess_lang)
+    return WindowsOcr(win_lang)

@@ -4,8 +4,10 @@ from collections import OrderedDict
 
 class Translator:
     def __init__(self, cfg: dict):
-        src, dst = cfg["source_lang"], cfg["target_lang"]
+        from .config import lang_info
+        src, dst = lang_info(cfg["source_lang"])[3], lang_info(cfg["target_lang"])[3]
         if cfg["translator"] == "deepl":
+            src, dst = src.split("-")[0], dst.split("-")[0]
             from deep_translator import DeeplTranslator
             self._impl = DeeplTranslator(api_key=cfg["deepl_api_key"], source=src,
                                          target=dst, use_free_api=True)

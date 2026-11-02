@@ -3,7 +3,12 @@ name: Build exe
 on:
   push:
     tags: ["v*"]        # day tag v1.0.0 -> build + tao Release
-  workflow_dispatch:    # hoac bam "Run workflow" de build thu (file nam o Artifacts)
+  workflow_dispatch:    # hoac bam "Run workflow" trong tab Actions
+    inputs:
+      version:
+        description: "Phien ban (vd v1.0.0). Bo trong = chi build thu, file nam o Artifacts"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -38,8 +43,11 @@ jobs:
           path: dist/ScreenTranslator.exe
 
       - name: Tao Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.version || github.ref_name }}
+          name: Screen Translator ${{ inputs.version || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           files: dist/ScreenTranslator.exe
           generate_release_notes: true

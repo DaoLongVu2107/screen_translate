@@ -43,6 +43,7 @@ class Overlay:
         self.menu.add_command(label="Hiện / ẩn chữ gốc", command=self._toggle_original)
         self.menu.add_separator()
         self.menu.add_command(label="Ẩn khung", command=self.hide)
+        self.menu.add_command(label="Cài đặt…", command=lambda: on_menu("open_settings"))
         self.menu.add_command(label="Thoát", command=lambda: on_menu("quit"))
 
         exclude_from_capture(self.win)

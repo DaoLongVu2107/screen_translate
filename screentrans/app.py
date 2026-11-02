@@ -9,6 +9,7 @@ from tkinter import messagebox
 from . import config
 from .overlay import Overlay
 from .selector import RegionSelector
+from .settings import SettingsWindow
 from .winutil import enable_dpi_awareness
 from .worker import TranslateWorker
 
@@ -17,6 +18,7 @@ log = logging.getLogger("screentrans")
 
 class App:
     def __init__(self):
+        self.first_run = not os.path.exists(config.CONFIG_PATH)
         self.cfg = config.load()
         self.q: "queue.Queue[tuple]" = queue.Queue()
 
@@ -25,20 +27,18 @@ class App:
         self.root.withdraw()
         self.root.title("Screen Translator")
 
-        self.overlay = Overlay(self.root, self.cfg, on_menu=self.post)
         self.selecting = False
         self.region = None
+        self.settings = None
+        self.overlay = Overlay(self.root, self.cfg, on_menu=self.post)
+        self.worker = self._new_worker()
 
-        self.worker = TranslateWorker(
-            self.cfg,
-            on_result=lambda src, dst: self.post("result", src, dst),
-            on_error=lambda msg: self.post("error", msg),
-        )
-        self.worker.start()
-
-        self._register_hotkeys()
+        self.register_hotkeys()
+        self.tray = None
         self._start_tray()
         self.root.after(50, self._pump)
+        if self.first_run:
+            self.root.after(300, self._welcome)
 
     # Moi luong khac (phim tat, khay, worker) chi day lenh vao queue;
     # tkinter chi duoc dung tu luong chinh.
@@ -52,7 +52,27 @@ class App:
                 getattr(self, f"cmd_{cmd}")(*args)
         except queue.Empty:
             pass
+        except Exception:
+            log.exception("Loi xu ly lenh")
         self.root.after(50, self._pump)
+
+    def _new_worker(self):
+        w = TranslateWorker(
+            self.cfg,
+            on_result=lambda src, dst: self.post("result", src, dst),
+            on_error=lambda msg: self.post("error", msg),
+        )
+        w.start()
+        return w
+
+    def _welcome(self):
+        hk = self.cfg["hotkeys"]
+        messagebox.showinfo(
+            "Screen Translator",
+            f"App đang chạy ở khay hệ thống (góc phải thanh taskbar).\n\n"
+            f"{hk['select_region']}: chọn vùng cần dịch\n"
+            f"{hk['toggle_auto']}: tạm dừng / tiếp tục\n"
+            f"{hk['open_settings']}: mở cài đặt (ngôn ngữ, phím tắt, giao diện)")
 
     # --- lenh ---
     def cmd_select_region(self):
@@ -71,7 +91,7 @@ class App:
         self.region = region
         self.overlay.place_for_region(region)
         self.overlay.show_text("", "…")
-        self.overlay.set_status("● đang dịch  (Alt+W tạm dừng)")
+        self.overlay.set_status("● đang dịch")
         self.worker.set_region(region)
 
     def cmd_toggle_auto(self):
@@ -99,26 +119,55 @@ class App:
     def cmd_error(self, msg):
         log.error(msg)
         self.overlay.set_status("⚠ lỗi – xem app.log")
-        if "khoi tao" in msg.lower():
+        if "khoi tao" in msg.lower() or "khởi tạo" in msg.lower():
             messagebox.showerror("Screen Translator", msg)
 
-    def cmd_open_config(self):
-        if sys.platform == "win32":
-            os.startfile(config.CONFIG_PATH)
+    def cmd_open_settings(self):
+        if self.settings and self.settings.win.winfo_exists():
+            self.settings.win.lift()
+            self.settings.win.focus_force()
+            return
+        self.settings = SettingsWindow(self.root, self.cfg, on_save=self.apply_config,
+                                       pause_hotkeys=self.unregister_hotkeys,
+                                       resume_hotkeys=self.register_hotkeys)
+
+    def apply_config(self, cfg):
+        """Luu cai dat va ap dung ngay, khong can khoi dong lai."""
+        self.cfg = cfg
+        config.save(cfg)
+        auto = self.worker.auto
+        self.worker.stop()
+        self.worker = self._new_worker()
+
+        was_visible = self.overlay.visible
+        old = self.overlay
+        self.overlay = Overlay(self.root, cfg, on_menu=self.post)
+        old.win.destroy()
+        if self.region:
+            self.overlay.place_for_region(self.region)
+            self.worker.region = self.region
+            self.worker.set_auto(auto)
+            self.overlay.show_text(old.original, old.translated)
+            self.overlay.set_status("● đang dịch" if auto else "❚❚ tạm dừng")
+            if not was_visible:
+                self.overlay.hide()
+            self.worker.translate_once()
+
+        self.unregister_hotkeys()
+        self.register_hotkeys()
+        if self.tray:
+            self.tray.menu = self._tray_menu()
+            self.tray.update_menu()
 
     def cmd_quit(self):
         self.worker.stop()
-        try:
-            import keyboard
-            keyboard.unhook_all()
-        except Exception:
-            pass
-        if getattr(self, "tray", None):
+        self.unregister_hotkeys()
+        if self.tray:
             self.tray.stop()
         self.root.quit()
 
     # --- phim tat & khay ---
-    def _register_hotkeys(self):
+    def register_hotkeys(self):
         try:
             import keyboard
         except ImportError:
@@ -129,38 +178,49 @@ class App:
                 continue
             try:
                 keyboard.add_hotkey(combo, self.post, args=(name,))
-                log.info("Phim tat %s = %s", combo, name)
             except Exception:
                 log.exception("Khong dang ky duoc phim tat %s", combo)
 
+    def unregister_hotkeys(self):
+        try:
+            import keyboard
+            keyboard.unhook_all_hotkeys()
+        except Exception:
+            pass
+
+    def _tray_menu(self):
+        import pystray
+        hk = self.cfg["hotkeys"]
+        names = config.HOTKEY_NAMES
+
+        def item(cmd, default=False):
+            label = names[cmd] + (f"   ({hk[cmd]})" if hk.get(cmd) else "")
+            return pystray.MenuItem(label, lambda: self.post(cmd), default=default)
+        return pystray.Menu(
+            item("select_region", default=True),
+            item("toggle_auto"),
+            item("translate_once"),
+            item("toggle_overlay"),
+            pystray.Menu.SEPARATOR,
+            item("open_settings"),
+            item("quit"),
+        )
+
     def _start_tray(self):
-        self.tray = None
         try:
             import pystray
-            from PIL import Image, ImageDraw
+            from PIL import Image, ImageDraw, ImageFont
         except ImportError:
             return
         img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
         d.rounded_rectangle((4, 4, 60, 60), 12, fill=(0, 150, 200, 255))
         try:
-            from PIL import ImageFont
             font = ImageFont.load_default(size=40)
         except Exception:
             font = None
         d.text((32, 32), "T", fill="white", font=font, anchor="mm")
-        hk = self.cfg["hotkeys"]
-        item = pystray.MenuItem
-        menu = pystray.Menu(
-            item(f"Chọn vùng ({hk['select_region']})", lambda: self.post("select_region"), default=True),
-            item(f"Tạm dừng / tiếp tục ({hk['toggle_auto']})", lambda: self.post("toggle_auto")),
-            item(f"Dịch lại ({hk['translate_once']})", lambda: self.post("translate_once")),
-            item(f"Ẩn / hiện khung ({hk['toggle_overlay']})", lambda: self.post("toggle_overlay")),
-            pystray.Menu.SEPARATOR,
-            item("Mở config.json", lambda: self.post("open_config")),
-            item("Thoát", lambda: self.post("quit")),
-        )
-        self.tray = pystray.Icon("screentrans", img, "Screen Translator", menu)
+        self.tray = pystray.Icon("screentrans", img, "Screen Translator", self._tray_menu())
         self.tray.run_detached()
 
     def run(self):
