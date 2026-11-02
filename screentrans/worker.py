@@ -22,7 +22,7 @@ def _diff(a: Image.Image, b: Image.Image) -> float:
     return ImageStat.Stat(ImageChops.difference(a, b)).mean[0] / 255.0
 
 
-MIN_GAP = 1.0          # toi thieu 1 giay giua hai lan goi may dich
+MIN_GAP = 1.0          # mac dinh: toi thieu 1 giay giua hai lan goi may dich
 
 
 def _is_rate_limit(e: Exception) -> bool:
@@ -158,7 +158,8 @@ class TranslateWorker(threading.Thread):
         if not self.gate():          # trong luc OCR nguoi dung da chuyen cua so
             self._candidate = None
             return
-        wait = MIN_GAP - (time.monotonic() - self._last_call)
+        gap = float(self.cfg.get("min_send_gap", MIN_GAP))
+        wait = gap - (time.monotonic() - self._last_call)
         if wait > 0:
             time.sleep(wait)
         self._candidate = None

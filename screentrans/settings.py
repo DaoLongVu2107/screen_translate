@@ -207,6 +207,22 @@ class SettingsWindow:
                           (self.split_speaker, "Tách tên người nói, giữ nguyên tên")):
             ttk.Checkbutton(opts, text=text, variable=var).pack(anchor="w", pady=2)
 
+        nums = ttk.Frame(f)
+        nums.grid(row=3, column=0, columnspan=2, sticky="we", pady=(8, 0))
+        nums.columnconfigure(0, minsize=LABEL_W)
+        nums.columnconfigure(1, weight=1)
+        self.google_ctx = tk.IntVar(value=self.cfg.get("google_context_lines", 0))
+        self._row(nums, 0, "Câu trước gửi kèm",
+                  ttk.Spinbox(nums, from_=0, to=5, textvariable=self.google_ctx, width=8),
+                  "Số câu trước gửi kèm cho Google Dịch miễn phí, 0 là tắt. Google trả về không tách đúng "
+                  "thì tự dịch riêng câu hiện tại.")
+        self.send_gap = tk.DoubleVar(value=self.cfg.get("min_send_gap", 1.0))
+        self._row(nums, 2, "Giãn cách gửi dịch",
+                  ttk.Spinbox(nums, from_=0.2, to=10, increment=0.1, textvariable=self.send_gap,
+                              width=8, format="%.1f"),
+                  "Tính bằng giây: hai lần gửi dịch cách nhau ít nhất bấy nhiêu. Tăng lên nếu hay "
+                  "bị Google chặn, giảm xuống nếu muốn câu mới hiện nhanh hơn.")
+
         self._current_ai = None
         self._show_engine()
 
@@ -481,6 +497,8 @@ class SettingsWindow:
         c["ai"] = copy.deepcopy(self.ai_store)
         c["clean_ocr"] = bool(self.clean_ocr.get())
         c["split_speaker"] = bool(self.split_speaker.get())
+        c["google_context_lines"] = max(0, min(5, int(self.google_ctx.get())))
+        c["min_send_gap"] = max(0.2, min(10.0, round(float(self.send_gap.get()), 1)))
         c["ai_notes"] = self.ai_notes.get("1.0", "end").strip()
         c["ai_context_lines"] = int(self.ai_context.get())
         o = c["overlay"]

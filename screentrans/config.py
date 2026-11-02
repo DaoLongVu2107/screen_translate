@@ -57,6 +57,8 @@ DEFAULTS = {
     },
     "clean_ocr": True,                # lam sach loi OCR truoc khi dich
     "split_speaker": True,            # tach ten nguoi noi, giu nguyen ten
+    "google_context_lines": 0,        # so cau truoc gui kem cho Google Dich mien phi (0 = tat)
+    "min_send_gap": 1.0,              # toi thieu bao nhieu giay giua hai lan gui dich
     "ai_notes": "",                   # bang ten rieng / van phong cho AI
     "ai_context_lines": 3,            # so cau truoc gui kem de AI hieu ngu canh
     "interval_ms": 600,               # chu ky chup man hinh khi dich lien tuc

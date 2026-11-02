@@ -1,5 +1,6 @@
 """May dich, co cache de khong goi lai cung 1 cau."""
-from collections import OrderedDict
+import re
+from collections import OrderedDict, deque
 
 from .ai_translator import PROVIDERS as AI_PROVIDERS, AiTranslator
 
@@ -129,6 +130,9 @@ class Translator:
         self._lang = cfg["source_lang"]
         self._clean = cfg.get("clean_ocr", True)
         self._speaker = cfg.get("split_speaker", True)
+        n = max(0, min(5, int(cfg.get("google_context_lines", 0))))
+        self._history: deque[str] = deque(maxlen=n or 1)
+        self._context_n = n
         engine = cfg["translator"]
         if engine in AI_PROVIDERS:
             ai = cfg["ai"][engine]
@@ -163,9 +167,30 @@ class Translator:
     def translate(self, text: str) -> str:
         if text in self._cache:
             self._cache.move_to_end(text)
+            self._history.append(text)
             return self._cache[text]
-        result = self._impl.translate(text[:4900]) or ""
+        if self._context_n and self._history and isinstance(self._impl, GoogleFreeTranslator):
+            result = self._translate_with_context(text)
+        else:
+            result = self._impl.translate(text[:4900]) or ""
+        self._history.append(text)
         self._cache[text] = result
         if len(self._cache) > 500:
             self._cache.popitem(last=False)
         return result
+
+    def _translate_with_context(self, text: str) -> str:
+        """Gui N cau truoc + cau hien tai trong mot lan (moi cau mot dong) de Google hieu
+        mach hoi thoai, roi chi lay dong cuoi. Khong tach dung so dong -> dich rieng."""
+        prev = []
+        for p in list(self._history)[-self._context_n:]:
+            p = " ".join(p.split())[-400:]
+            if not re.search(r"[.!?…。！？」』\"']$", p):
+                p += "。" if re.search(r"[\u3040-\u30ff\u3400-\u9fff]$", p) else "."
+            prev.append(p)
+        body = " ".join(text.split())[:4000]
+        out = self._impl.translate("\n".join(prev + [body])) or ""
+        parts = [x.strip() for x in out.split("\n") if x.strip()]
+        if len(parts) == len(prev) + 1:
+            return parts[-1]
+        return self._impl.translate(text[:4900]) or ""
