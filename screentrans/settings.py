@@ -387,6 +387,14 @@ class SettingsWindow:
         ttk.Checkbutton(f, text="Tự bật dịch khi mở app đã lưu vùng", variable=self.auto_start_games
                         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 4))
 
+        self.scale_window = tk.BooleanVar(value=self.cfg.get("scale_with_window", True))
+        sf = ttk.Frame(f)
+        sf.grid(row=8, column=0, columnspan=2, sticky="we", pady=(8, 0))
+        ttk.Checkbutton(sf, text="Vùng dịch co giãn theo kích thước cửa sổ app",
+                        variable=self.scale_window).pack(anchor="w")
+        ttk.Label(sf, text="Đổi kích thước cửa sổ hoặc độ phân giải thì vùng dịch phóng to thu nhỏ "
+                           "theo. Di chuyển cửa sổ không ảnh hưởng, vùng dịch luôn đi theo.",
+                  foreground=theme.palette()["hint"], wraplength=440).pack(anchor="w")
         self.pause_unfocused = tk.BooleanVar(value=self.cfg.get("pause_when_unfocused", True))
         ttk.Checkbutton(f, text="Chỉ dịch khi app đang ở phía trước", variable=self.pause_unfocused
                         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
@@ -394,15 +402,15 @@ class SettingsWindow:
                           "của cửa sổ khác. Quay lại app thì dịch tiếp.",
                   foreground=theme.palette()["hint"], wraplength=440).grid(row=4, column=0, columnspan=2, sticky="w")
 
-        ttk.Label(f, text="App đã lưu vùng:").grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 2))
+        ttk.Label(f, text="App đã lưu vùng:").grid(row=10, column=0, columnspan=2, sticky="w", pady=(12, 2))
         self.profiles = copy.deepcopy(self.cfg.get("profiles", {}))
         self._deleted_profiles = set()
         self.profile_list = tk.Listbox(f, height=6, activestyle="none", font=("Segoe UI", 10),
                                        **{k: v for k, v in theme.field_options().items() if k != "insertbackground"})
-        self.profile_list.grid(row=6, column=0, columnspan=2, sticky="we")
+        self.profile_list.grid(row=11, column=0, columnspan=2, sticky="we")
         self._fill_profiles()
         ttk.Button(f, text="Xóa app đã chọn", command=self._delete_profile
-                   ).grid(row=7, column=0, sticky="w", pady=6)
+                   ).grid(row=12, column=0, sticky="w", pady=6)
 
     def _fill_profiles(self):
         self.profile_list.delete(0, "end")
@@ -517,6 +525,7 @@ class SettingsWindow:
         c["remember_games"] = bool(self.remember_games.get())
         c["auto_start_games"] = bool(self.auto_start_games.get())
         c["pause_when_unfocused"] = bool(self.pause_unfocused.get())
+        c["scale_with_window"] = bool(self.scale_window.get())
         c["_deleted_profiles"] = sorted(self._deleted_profiles)
         return c
 

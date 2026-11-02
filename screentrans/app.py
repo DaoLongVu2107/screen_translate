@@ -38,7 +38,8 @@ class App:
         self.user_hidden = False           # nguoi dung tu an khung -> khong tu hien lai
         self.quick_popup = None
         # Game dang gan voi vung dich (de nho vung va bam theo cua so game)
-        self.game_hwnd = self.game_exe = self.game_origin = None
+        self.game_hwnd = self.game_exe = self.game_origin = self.game_size = None
+        self.game_base = (None, None)
         self.game_suspended = False
         self._was_auto = True
         self._dismissed: set = set()       # cua so nguoi dung da bao "quen"
@@ -132,24 +133,41 @@ class App:
         exe, origin = winutil.window_exe(hwnd), winutil.client_origin(hwnd)
         if not exe or not origin or exe.lower() in ("explorer.exe",):
             return
-        self._attach_game(hwnd, exe, origin)
         ox, oy = origin
+        size = winutil.client_size(hwnd)
+        self._attach_game(hwnd, exe, origin, (left - ox, top - oy, w, h), size)
         ow = self.overlay.geometry()
         self.cfg["profiles"][exe] = {
             "title": winutil.window_title(hwnd),
             "region": [left - ox, top - oy, w, h],
+            "client": list(size) if size else None,
             "overlay": [ow[0] - ox, ow[1] - oy, ow[2], ow[3]],
         }
         config.save(self.cfg)
         log.info("Da luu vung cho %s", exe)
 
-    def _attach_game(self, hwnd, exe, origin):
+    def _attach_game(self, hwnd, exe, origin, base_rel=None, base_size=None):
         self.game_hwnd, self.game_exe, self.game_origin = hwnd, exe, origin
+        self.game_size = winutil.client_size(hwnd)
+        # Vung goc (tinh tu goc cua so) va kich thuoc cua so luc chon vung: dung de co gian
+        self.game_base = (tuple(base_rel) if base_rel else None,
+                          tuple(base_size) if base_size else self.game_size)
         self.game_suspended = False
         self._dismissed.discard(hwnd)
 
+    def _region_for(self, origin, size):
+        """Vung dich tren man hinh ung voi vi tri / kich thuoc cua so hien tai."""
+        rel, base = self.game_base
+        dx, dy, w, h = rel
+        sx = sy = 1.0
+        if self.cfg.get("scale_with_window", True) and base and size and base[0] and base[1]:
+            sx, sy = size[0] / base[0], size[1] / base[1]
+        return (round(origin[0] + dx * sx), round(origin[1] + dy * sy),
+                max(8, round(w * sx)), max(8, round(h * sy)))
+
     def _detach_game(self):
-        self.game_hwnd = self.game_exe = self.game_origin = None
+        self.game_hwnd = self.game_exe = self.game_origin = self.game_size = None
+        self.game_base = (None, None)
         self.game_suspended = False
 
     def _load_profile(self, hwnd, exe):
@@ -158,9 +176,8 @@ class App:
         if not prof or not origin:
             return
         ox, oy = origin
-        dx, dy, w, h = prof["region"]
-        region = (ox + dx, oy + dy, w, h)
-        self._attach_game(hwnd, exe, origin)
+        self._attach_game(hwnd, exe, origin, prof["region"], prof.get("client"))
+        region = self._region_for(origin, self.game_size)
         self.region = region
         if prof.get("overlay"):
             x, y, ow, oh = prof["overlay"]
@@ -223,14 +240,20 @@ class App:
                     self._show_overlay()
                     self.overlay.set_status(self._running_status() if self._was_auto else "❚❚ tạm dừng")
                 origin = winutil.client_origin(hwnd)
-                if not self.game_suspended and origin and self.region \
-                        and origin != self.game_origin:                     # cua so bi keo di
+                size = winutil.client_size(hwnd)
+                if not self.game_suspended and origin and self.region and size and size[0] > 0 \
+                        and (origin != self.game_origin or size != self.game_size):
+                    # Keo cua so: vung di theo. Doi kich thuoc: vung co gian theo ty le cua so.
                     dx, dy = origin[0] - self.game_origin[0], origin[1] - self.game_origin[1]
-                    left, top, w, h = self.region
-                    self.region = (left + dx, top + dy, w, h)
-                    self.game_origin = origin
+                    if self.game_base[0]:
+                        self.region = self._region_for(origin, size)
+                    else:
+                        left, top, w, h = self.region
+                        self.region = (left + dx, top + dy, w, h)
+                    self.game_origin, self.game_size = origin, size
                     self.worker.move_region(self.region)
-                    self.overlay.move_by(dx, dy)
+                    if dx or dy:
+                        self.overlay.move_by(dx, dy)
 
         if not (self.cfg.get("remember_games", True) and self.cfg.get("auto_start_games", True)):
             return

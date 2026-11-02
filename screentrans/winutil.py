@@ -160,3 +160,13 @@ def dark_title_bar(tk_window):
 def round_corners(tk_window):
     """Bo goc cua so nhu Windows 11 (Windows 10 bo qua)."""
     _dwm_set(tk_window, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)
+
+
+def client_size(hwnd):
+    """Kich thuoc vung noi dung cua cua so (rong, cao), hoac None."""
+    if not IS_WIN or not hwnd or not _user32.IsWindow(hwnd):
+        return None
+    rc = wintypes.RECT()
+    if not _user32.GetClientRect(hwnd, ctypes.byref(rc)):
+        return None
+    return rc.right - rc.left, rc.bottom - rc.top
