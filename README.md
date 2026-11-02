@@ -2,7 +2,6 @@
 
 App Windows nhỏ dịch chữ trên màn hình theo thời gian thực. Bấm phím tắt, kéo chuột chọn một vùng (khung thoại trong game, phụ đề video, cửa sổ chat...). App sẽ tự đọc chữ trong vùng đó và hiện bản dịch tiếng Việt mỗi khi chữ thay đổi.
 
-Lấy ý tưởng từ [Translumo](https://github.com/ramjke/translumo).
 
 ## Tải về
 
