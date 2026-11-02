@@ -1,6 +1,6 @@
 # Screen Translator
 
-App Windows nhỏ dịch chữ trên màn hình theo thời gian thực. Bấm phím tắt, kéo chuột chọn một vùng (khung thoại trong game, phụ đề video, cửa sổ chat...). App sẽ tự đọc chữ trong vùng đó và hiện bản dịch tiếng Việt mỗi khi chữ thay đổi.
+App Windows nhỏ dịch chữ trên màn hình theo thời gian thực. Bấm phím tắt, kéo chuột chọn một vùng (khung thoại trong game, phụ đề video, cửa sổ chat, tài liệu...). App sẽ tự đọc chữ trong vùng đó và hiện bản dịch tiếng Việt mỗi khi chữ thay đổi.
 
 
 ## Tải về
@@ -37,7 +37,7 @@ Mọi phím tắt đều đổi được trong phần Cài đặt.
    - **Ngôn ngữ**: ngôn ngữ gốc và ngôn ngữ cần dịch sang
    - **Nhận dạng chữ**: Windows OCR hoặc Tesseract, tốc độ quét
    - **Dịch**: Google Dịch (miễn phí), Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
-   - **Game**: nhớ vùng dịch theo từng game, tự bật khi mở game
+   - **App**: nhớ vùng dịch theo từng app, tự bật khi mở app, chỉ dịch khi app đang ở phía trước
    - **Giao diện**: phông chữ, cỡ chữ, màu, độ trong suốt, vị trí khung dịch
    - **Phím tắt**
 
@@ -55,5 +55,5 @@ Phí AI tính theo lượng chữ và trả trực tiếp cho nhà cung cấp. A
 ## Mẹo
 
 - **Dịch tiếng Nhật, Trung, Hàn...**: Windows cần có gói ngôn ngữ đó. Vào *Settings → Time & language → Language & region → Add a language* và thêm ngôn ngữ cần đọc.
-- **Phím tắt không ăn khi đang trong game**: chuột phải `ScreenTranslator.exe` → *Run as administrator*.
+- **Phím tắt không ăn khi đang dùng một app khác** (thường là game): chuột phải `ScreenTranslator.exe` → *Run as administrator*.
 - **Nên chọn vùng vừa khít phần chữ**: dịch sẽ nhanh và chính xác hơn.

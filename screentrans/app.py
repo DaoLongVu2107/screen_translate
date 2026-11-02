@@ -200,7 +200,7 @@ class App:
                 log.info("%s da dong", self.game_exe)
                 self.worker.set_auto(False)
                 self.overlay.hide()
-                self.overlay.set_status("game đã đóng")
+                self.overlay.set_status("app đã đóng")
                 self.region = None
                 self._detach_game()
             else:
@@ -252,7 +252,7 @@ class App:
     def _suspend_reason(self, hwnd):
         """Ly do tam dung dich (None = cu dich binh thuong)."""
         if winutil.window_minimized(hwnd):
-            return "game bị thu nhỏ"
+            return "app bị thu nhỏ"
         if not self.cfg.get("pause_when_unfocused", True):
             return None
         fg = winutil.foreground_window()
@@ -262,11 +262,11 @@ class App:
         # Cua so cua chinh app (khung dich, cai dat) hoac hop thoai phu cua game -> van dich
         if pid == os.getpid() or pid == winutil.window_pid(hwnd):
             return None
-        return "game không ở phía trước"
+        return "app không ở phía trước"
 
     def cmd_forget_game(self):
         if not self.game_exe:
-            self.overlay.set_status("vùng hiện tại không gắn với game nào")
+            self.overlay.set_status("vùng hiện tại không gắn với app nào")
             return
         exe = self.game_exe
         self.cfg["profiles"].pop(exe, None)
@@ -413,7 +413,7 @@ class App:
             item("toggle_auto"),
             item("translate_once"),
             item("toggle_overlay"),
-            pystray.MenuItem("Quên vùng của game hiện tại", lambda: self.post("forget_game")),
+            pystray.MenuItem("Quên vùng của app hiện tại", lambda: self.post("forget_game")),
             pystray.Menu.SEPARATOR,
             item("open_settings"),
             item("quit"),

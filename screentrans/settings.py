@@ -70,7 +70,7 @@ class SettingsWindow:
         self._tab_ocr(self._tab(nb, "Nhận dạng chữ"))
         self._tab_translator(self._tab(nb, "Dịch"))
         self._tab_appearance(self._tab(nb, "Giao diện"))
-        self._tab_games(self._tab(nb, "Game"))
+        self._tab_games(self._tab(nb, "App"))
         self._tab_hotkeys(self._tab(nb, "Phím tắt"))
 
         bar = ttk.Frame(w)
@@ -379,29 +379,29 @@ class SettingsWindow:
     def _tab_games(self, f):
         self.remember_games = tk.BooleanVar(value=self.cfg.get("remember_games", True))
         self.auto_start_games = tk.BooleanVar(value=self.cfg.get("auto_start_games", True))
-        ttk.Checkbutton(f, text="Nhớ vùng dịch theo từng game", variable=self.remember_games
+        ttk.Checkbutton(f, text="Nhớ vùng dịch theo từng app", variable=self.remember_games
                         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=4)
-        ttk.Label(f, text="Khi chọn vùng trên cửa sổ game, app nhớ vùng đó theo game. Kéo cửa sổ "
-                          "game đi đâu, vùng dịch đi theo; thu nhỏ hoặc tắt game thì tự dừng.",
+        ttk.Label(f, text="Khi chọn vùng trên cửa sổ một app, vùng đó được nhớ theo app. Kéo cửa sổ "
+                          "app đi đâu, vùng dịch đi theo; thu nhỏ hoặc tắt app thì tự dừng.",
                   foreground=theme.palette()["hint"], wraplength=440).grid(row=1, column=0, columnspan=2, sticky="w")
-        ttk.Checkbutton(f, text="Tự bật dịch khi mở game đã lưu vùng", variable=self.auto_start_games
+        ttk.Checkbutton(f, text="Tự bật dịch khi mở app đã lưu vùng", variable=self.auto_start_games
                         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 4))
 
         self.pause_unfocused = tk.BooleanVar(value=self.cfg.get("pause_when_unfocused", True))
-        ttk.Checkbutton(f, text="Chỉ dịch khi game đang ở phía trước", variable=self.pause_unfocused
+        ttk.Checkbutton(f, text="Chỉ dịch khi app đang ở phía trước", variable=self.pause_unfocused
                         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
         ttk.Label(f, text="Chuyển sang cửa sổ khác thì tạm dừng và ẩn khung dịch, tránh dịch nhầm chữ "
-                          "của cửa sổ khác. Quay lại game thì dịch tiếp.",
+                          "của cửa sổ khác. Quay lại app thì dịch tiếp.",
                   foreground=theme.palette()["hint"], wraplength=440).grid(row=4, column=0, columnspan=2, sticky="w")
 
-        ttk.Label(f, text="Game đã lưu vùng:").grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 2))
+        ttk.Label(f, text="App đã lưu vùng:").grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 2))
         self.profiles = copy.deepcopy(self.cfg.get("profiles", {}))
         self._deleted_profiles = set()
         self.profile_list = tk.Listbox(f, height=6, activestyle="none", font=("Segoe UI", 10),
                                        **{k: v for k, v in theme.field_options().items() if k != "insertbackground"})
         self.profile_list.grid(row=6, column=0, columnspan=2, sticky="we")
         self._fill_profiles()
-        ttk.Button(f, text="Xóa game đã chọn", command=self._delete_profile
+        ttk.Button(f, text="Xóa app đã chọn", command=self._delete_profile
                    ).grid(row=7, column=0, sticky="w", pady=6)
 
     def _fill_profiles(self):
@@ -411,7 +411,7 @@ class SettingsWindow:
             title = self.profiles[exe].get("title") or ""
             self.profile_list.insert("end", f"{exe}   —   {title}" if title else exe)
         if not self._profile_keys:
-            self.profile_list.insert("end", "Chưa có. Bấm phím chọn vùng trên cửa sổ game để lưu.")
+            self.profile_list.insert("end", "Chưa có. Bấm phím chọn vùng trên cửa sổ một app để lưu.")
 
     def _delete_profile(self):
         sel = self.profile_list.curselection()

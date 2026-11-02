@@ -96,7 +96,7 @@ class Overlay:
         m.add_command(label="Hiện / ẩn chữ gốc", command=self._toggle_original)
         m.add_command(label="Xóa lịch sử", command=self.clear)
         m.add_separator()
-        m.add_command(label="Quên vùng của game này", command=lambda: on_menu("forget_game"))
+        m.add_command(label="Quên vùng của app này", command=lambda: on_menu("forget_game"))
         m.add_command(label="Cài đặt…", command=lambda: on_menu("open_settings"))
         m.add_command(label="Ẩn khung", command=lambda: on_menu("hide_overlay"))
         m.add_command(label="Thoát", command=lambda: on_menu("quit"))
