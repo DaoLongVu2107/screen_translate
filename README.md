@@ -29,12 +29,15 @@ Mọi phím tắt đều đổi được trong phần Cài đặt.
 1. Chạy `ScreenTranslator.exe`. App nằm ở khay hệ thống (góc phải thanh taskbar).
 2. Bấm `Alt + Q`, kéo chuột quanh vùng có chữ cần dịch. Bấm `Esc` hoặc chuột phải để hủy.
 3. Bản dịch hiện trong một khung nhỏ ngay dưới vùng đã chọn và tự cập nhật khi chữ thay đổi.
-   - Kéo khung để di chuyển.
+   - Kéo bất kỳ chỗ nào trên khung để di chuyển, kéo góc dưới phải để đổi kích thước.
+   - Câu mới hiện ở dưới cùng, câu cũ đẩy lên trên thành lịch sử; lăn chuột để xem lại.
+   - Giữ `Ctrl` và lăn chuột trên khung để chỉnh độ trong suốt.
    - Chuột phải vào khung để copy bản dịch, xem chữ gốc, chọn vùng mới...
 4. Bấm `Alt + S` (hoặc chuột phải icon ở khay → **Mở cài đặt**) để chỉnh:
    - **Ngôn ngữ**: ngôn ngữ gốc và ngôn ngữ cần dịch sang
    - **Nhận dạng chữ**: Windows OCR hoặc Tesseract, tốc độ quét
-   - **Dịch**: Google Dịch (miễn phí), DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
+   - **Dịch**: Google Dịch (miễn phí), Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
+   - **Game**: nhớ vùng dịch theo từng game, tự bật khi mở game
    - **Giao diện**: phông chữ, cỡ chữ, màu, độ trong suốt, vị trí khung dịch
    - **Phím tắt**
 

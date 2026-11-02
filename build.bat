@@ -6,7 +6,7 @@ if not exist .venv (
 call .venv\Scripts\activate.bat
 pip install -r requirements.txt pyinstaller || goto :err
 pyinstaller --noconfirm --onefile --windowed --name ScreenTranslator ^
-    --collect-all winocr --collect-all winrt ^
+    --collect-all winocr --collect-all winrt --collect-data sv_ttk ^
     --hidden-import pystray._win32 ^
     screentrans\__main__.py || goto :err
 echo.

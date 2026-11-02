@@ -13,14 +13,18 @@ class RegionSelector:
         self.win = tk.Toplevel(root)
         self.win.overrideredirect(True)
         self.win.attributes("-topmost", True)
-        self.win.attributes("-alpha", 0.35)
+        self.win.attributes("-alpha", 0.45)
         self.win.geometry(f"{vw}x{vh}+{vx}+{vy}")
         self.win.configure(cursor="crosshair", bg="black")
 
         self.canvas = tk.Canvas(self.win, bg="black", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
-        self.canvas.create_text(vw // 2, 40, fill="white", font=("Segoe UI", 16),
-                                text="Kéo chuột để chọn vùng cần dịch  •  Esc / chuột phải để hủy")
+        hint = "Kéo chuột để chọn vùng cần dịch     Esc hoặc chuột phải để hủy"
+        tw = 640
+        self.canvas.create_rectangle(vw // 2 - tw // 2, 24, vw // 2 + tw // 2, 64,
+                                     fill="#202020", outline="#3c3c3c")
+        self.canvas.create_text(vw // 2, 44, fill="white", font=("Segoe UI", 13), text=hint)
+        self.size_label = None
         self.rect = None
         self.start = None
 
@@ -36,12 +40,18 @@ class RegionSelector:
         self.start = (e.x, e.y)
         if self.rect:
             self.canvas.delete(self.rect)
-        self.rect = self.canvas.create_rectangle(e.x, e.y, e.x, e.y, outline="#00E5FF",
-                                                 width=2, fill="white")
+        self.rect = self.canvas.create_rectangle(e.x, e.y, e.x, e.y, outline="#4c9aff",
+                                                 width=2, fill="#ffffff")
 
     def _drag(self, e):
         if self.start:
             self.canvas.coords(self.rect, *self.start, e.x, e.y)
+            w, h = abs(e.x - self.start[0]), abs(e.y - self.start[1])
+            x, y = max(e.x, self.start[0]), max(e.y, self.start[1]) + 14
+            if self.size_label:
+                self.canvas.delete(self.size_label)
+            self.size_label = self.canvas.create_text(x, y, anchor="ne", fill="white",
+                                                      font=("Segoe UI", 10), text=f"{w} × {h}")
 
     def _release(self, e):
         if not self.start:

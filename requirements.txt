@@ -8,3 +8,5 @@ pytesseract>=0.3.10
 anthropic>=0.70
 openai>=1.50
 google-genai>=1.0
+requests>=2.28
+sv-ttk>=2.6

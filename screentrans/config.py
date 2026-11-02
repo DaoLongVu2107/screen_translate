@@ -46,8 +46,9 @@ DEFAULTS = {
     "target_lang": "vi",
     "ocr_engine": "windows",          # "windows" hoac "tesseract"
     "tesseract_cmd": "C:/Program Files/Tesseract-OCR/tesseract.exe",
-    "translator": "google",           # google | deepl | claude | openai | gemini | grok
+    "translator": "google",           # google | google_cloud | deepl | claude | openai | gemini | grok
     "deepl_api_key": "",
+    "google_cloud_api_key": "",
     "ai": {
         "claude": {"api_key": "", "model": "claude-opus-5-5"},
         "openai": {"api_key": "", "model": "gpt-5.4-mini"},

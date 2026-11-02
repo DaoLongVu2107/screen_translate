@@ -27,6 +27,11 @@ class App:
         self.root = tk.Tk()
         self.root.withdraw()
         self.root.title("Screen Translator")
+        try:                       # giao dien Fluent kieu Windows 11, che do toi
+            import sv_ttk
+            sv_ttk.set_theme("dark")
+        except Exception:
+            log.info("Khong co sv_ttk, dung giao dien mac dinh")
 
         self.selecting = False
         self.region = None

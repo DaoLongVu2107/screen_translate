@@ -133,3 +133,30 @@ def window_alive(hwnd) -> bool:
 
 def window_minimized(hwnd) -> bool:
     return bool(IS_WIN and hwnd and (_user32.IsIconic(hwnd) or not _user32.IsWindowVisible(hwnd)))
+
+
+# --- Giao dien kieu Windows 11 ---
+DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+DWMWA_WINDOW_CORNER_PREFERENCE = 33
+DWMWCP_ROUND = 2
+
+
+def _dwm_set(tk_window, attr: int, value: int):
+    if not IS_WIN:
+        return
+    try:
+        v = ctypes.c_int(value)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(_hwnd(tk_window), attr, ctypes.byref(v),
+                                                   ctypes.sizeof(v))
+    except Exception:
+        pass
+
+
+def dark_title_bar(tk_window):
+    """Thanh tieu de mau toi (Windows 10 20H1+ / 11)."""
+    _dwm_set(tk_window, DWMWA_USE_IMMERSIVE_DARK_MODE, 1)
+
+
+def round_corners(tk_window):
+    """Bo goc cua so nhu Windows 11 (Windows 10 bo qua)."""
+    _dwm_set(tk_window, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)

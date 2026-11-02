@@ -1,8 +1,9 @@
 """Khung dich: luon nam tren cung, keo thanh tren de di chuyen, keo goc duoi-phai de doi
-kich thuoc. Cau moi hien o duoi cung, cau cu bi day len tren thanh lich su (lan chuot de xem)."""
+kich thuoc. Cau moi hien o duoi cung, cau cu bi day len tren thanh lich su (lan chuot de xem).
+Keo bat ky cho nao tren khung de di chuyen."""
 import tkinter as tk
 
-from .winutil import exclude_from_capture
+from .winutil import exclude_from_capture, round_corners
 
 MIN_W, MIN_H = 180, 70
 MAX_ENTRIES = 200
@@ -49,6 +50,9 @@ class Overlay:
                          padx=8, cursor="hand2")
         close.pack(side="right")
         close.bind("<Button-1>", lambda e: self.hide())
+        close.bind("<Enter>", lambda e: close.configure(fg="#ffffff", bg="#c42b1c"))
+        close.bind("<Leave>", lambda e: close.configure(fg="#9a9a9a", bg=bar_bg))
+        self._bar_bg = bar_bg
         for wid in (self.bar, self.status):
             wid.bind("<ButtonPress-1>", self._start_move)
             wid.bind("<B1-Motion>", self._move)
@@ -66,6 +70,12 @@ class Overlay:
                                 font=(family, max(8, size - 3)))
         self.text.tag_raise("orig")
         self.text.configure(state="disabled")
+        # Keo bat ky cho nao tren khung de di chuyen (copy chu qua menu chuot phai)
+        self.text.bind("<ButtonPress-1>", lambda e: (self._start_move(e), "break")[1])
+        self.text.bind("<B1-Motion>", lambda e: (self._move(e), "break")[1])
+        self.text.bind("<ButtonRelease-1>", lambda e: (self._changed(), "break")[1])
+        self.text.bind("<Double-Button-1>", lambda e: "break")
+        self.text.configure(cursor="fleur")
 
         # Goc keo doi kich thuoc
         self.grip = tk.Label(w, text="◢", font=(family, 9), fg=dim, bg=bg,
@@ -82,7 +92,7 @@ class Overlay:
         m.add_separator()
         m.add_command(label="Copy câu mới nhất", command=lambda: self._copy(self.latest()[1]))
         m.add_command(label="Copy chữ gốc mới nhất", command=lambda: self._copy(self.latest()[0]))
-        m.add_command(label="Copy đoạn đang bôi đen", command=self._copy_selection)
+        m.add_command(label="Copy toàn bộ lịch sử", command=self._copy_all)
         m.add_command(label="Hiện / ẩn chữ gốc", command=self._toggle_original)
         m.add_command(label="Xóa lịch sử", command=self.clear)
         m.add_separator()
@@ -92,8 +102,10 @@ class Overlay:
         m.add_command(label="Thoát", command=lambda: on_menu("quit"))
         for wid in (self.bar, self.status, self.text, self.grip):
             wid.bind("<Button-3>", self._popup)
+            wid.bind("<Control-MouseWheel>", self._wheel_opacity)
 
         exclude_from_capture(w)
+        round_corners(w)
 
     # --- vi tri & kich thuoc ---
     def geometry(self):
@@ -140,6 +152,14 @@ class Overlay:
         if self.on_geometry:
             self.on_geometry(self.geometry())
 
+    def _wheel_opacity(self, e):
+        step = 0.05 if e.delta > 0 else -0.05
+        self.cfg["opacity"] = round(max(0.2, min(1.0, self.cfg["opacity"] + step)), 2)
+        self.win.attributes("-alpha", self.cfg["opacity"])
+        self.set_status(f"độ trong suốt {round((1 - self.cfg['opacity']) * 100)}%")
+        self._changed()      # luu lai
+        return "break"
+
     # --- noi dung ---
     def latest(self):
         return self.entries[-1] if self.entries else ("", "")
@@ -182,8 +202,11 @@ class Overlay:
         self.entries = []
         self._rerender()
 
+    STATUS_COLORS = {"●": "#4cc26a", "❚": "#e0a43a", "⏳": "#e0a43a", "↻": "#5aa9f0", "⚠": "#ff6b6b"}
+
     def set_status(self, text: str):
-        self.status.configure(text=text)
+        color = self.STATUS_COLORS.get(text[:1], "#9a9a9a")
+        self.status.configure(text=text, fg=color)
 
     def _toggle_original(self):
         self.cfg["show_original"] = not self.cfg.get("show_original")
@@ -195,11 +218,8 @@ class Overlay:
             self.win.clipboard_clear()
             self.win.clipboard_append(text)
 
-    def _copy_selection(self):
-        try:
-            self._copy(self.text.get("sel.first", "sel.last"))
-        except tk.TclError:
-            pass
+    def _copy_all(self):
+        self._copy("\n".join(t for _, t in self.entries))
 
     def _popup(self, e):
         self.menu.tk_popup(e.x_root, e.y_root)
