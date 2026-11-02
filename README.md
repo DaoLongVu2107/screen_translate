@@ -1,15 +1,33 @@
 # Screen Translator
 
-App Windows nhỏ dịch chữ trên màn hình theo thời gian thực. Bấm phím tắt, kéo chuột chọn một vùng (khung thoại trong game, phụ đề video, cửa sổ chat, tài liệu...). App sẽ tự đọc chữ trong vùng đó và hiện bản dịch tiếng Việt mỗi khi chữ thay đổi.
+[![Tải bản mới nhất](https://img.shields.io/github/v/release/DaoLongVu2107/screen_translate?label=t%E1%BA%A3i%20v%E1%BB%81&color=0a7cff)](https://github.com/DaoLongVu2107/screen_translate/releases/latest)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows)](https://github.com/DaoLongVu2107/screen_translate/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+**Real-time screen translator for Windows.** Press a hotkey, drag over any part of the screen (game dialogue, video subtitles, chat windows, documents) and the text is read with OCR and translated live, every time it changes. A free, lightweight alternative to Translumo with Google Translate, DeepL and AI translation (Claude, ChatGPT, Gemini, Grok).
+
+**App dịch màn hình theo thời gian thực cho Windows.** Bấm phím tắt, kéo chuột chọn một vùng trên màn hình (khung thoại trong game, phụ đề video, cửa sổ chat, tài liệu...), app tự đọc chữ và hiện bản dịch tiếng Việt mỗi khi chữ thay đổi.
+
+![Khung dịch hiện ngay dưới khung thoại game](docs/images/demo.png)
 
 ## Tải về
 
-Vào trang **[Releases](../../releases/latest)**, tải `ScreenTranslator.exe` rồi chạy. Không cần cài đặt gì thêm.
+Vào trang **[Releases](https://github.com/DaoLongVu2107/screen_translate/releases/latest)**, tải `ScreenTranslator.exe` rồi chạy. Không cần cài đặt gì thêm.
 
 > Windows có thể hiện cảnh báo SmartScreen vì file chưa có chữ ký số: bấm **More info → Run anyway**.
 
 Yêu cầu: Windows 10 hoặc 11.
+
+## Tính năng
+
+- Chọn vùng bằng phím tắt, dịch liên tục và chỉ dịch khi chữ thay đổi
+- Nhận dạng chữ bằng Windows OCR có sẵn, hoặc Tesseract
+- Máy dịch: Google Dịch miễn phí, Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
+- Tự làm sạch lỗi OCR và tách tên người nói, chỉ dịch lời thoại
+- Khung dịch kéo đi tự do, đổi kích thước, có lịch sử các câu trước
+- Nhớ vùng dịch theo từng app, kéo cửa sổ đi đâu vùng dịch theo đó
+- Chỉ dịch khi app đang ở phía trước, thu nhỏ hoặc chuyển cửa sổ thì tự dừng
+- Giao diện Sáng / Tối, tùy chỉnh phông chữ, màu, độ trong suốt
 
 ## Phím tắt
 
@@ -33,13 +51,9 @@ Mọi phím tắt đều đổi được trong phần Cài đặt.
    - Câu mới hiện ở dưới cùng, câu cũ đẩy lên trên thành lịch sử; lăn chuột để xem lại.
    - Giữ `Ctrl` và lăn chuột trên khung để chỉnh độ trong suốt.
    - Chuột phải vào khung để copy bản dịch, xem chữ gốc, chọn vùng mới...
-4. Bấm `Alt + S` (hoặc chuột phải icon ở khay → **Mở cài đặt**) để chỉnh:
-   - **Ngôn ngữ**: ngôn ngữ gốc và ngôn ngữ cần dịch sang
-   - **Nhận dạng chữ**: Windows OCR hoặc Tesseract, tốc độ quét
-   - **Dịch**: Google Dịch (miễn phí), Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
-   - **App**: nhớ vùng dịch theo từng app, tự bật khi mở app, chỉ dịch khi app đang ở phía trước
-   - **Giao diện**: phông chữ, cỡ chữ, màu, độ trong suốt, vị trí khung dịch
-   - **Phím tắt**
+4. Bấm `Alt + S` (hoặc chuột phải icon ở khay → **Mở cài đặt**) để chỉnh ngôn ngữ, máy dịch, giao diện, phím tắt và cách nhớ vùng theo app.
+
+![Cửa sổ cài đặt](docs/images/settings.png)
 
 ## Dịch bằng AI
 
@@ -55,5 +69,11 @@ Phí AI tính theo lượng chữ và trả trực tiếp cho nhà cung cấp. A
 ## Mẹo
 
 - **Dịch tiếng Nhật, Trung, Hàn...**: Windows cần có gói ngôn ngữ đó. Vào *Settings → Time & language → Language & region → Add a language* và thêm ngôn ngữ cần đọc.
+- **Hay bị Google chặn**: tăng **Giãn cách gửi dịch** trong Cài đặt → Dịch, hoặc chuyển sang Google Cloud, DeepL hay AI.
 - **Phím tắt không ăn khi đang dùng một app khác** (thường là game): chuột phải `ScreenTranslator.exe` → *Run as administrator*.
+- **Game toàn màn hình**: chuyển game sang chế độ *Borderless* hoặc *Windowed* để khung dịch nổi lên trên được.
 - **Nên chọn vùng vừa khít phần chữ**: dịch sẽ nhanh và chính xác hơn.
+
+## Giấy phép
+
+[MIT](LICENSE)
