@@ -21,6 +21,7 @@ Yêu cầu: Windows 10 hoặc 11.
 ## Tính năng
 
 - Chọn vùng bằng phím tắt, dịch liên tục và chỉ dịch khi chữ thay đổi
+- Dịch nhanh một lần kiểu Google Lens: khoanh vùng là có bản dịch, kèm nút Copy
 - Nhận dạng chữ bằng Windows OCR có sẵn, hoặc Tesseract
 - Máy dịch: Google Dịch miễn phí, Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
 - Tự làm sạch lỗi OCR và tách tên người nói, chỉ dịch lời thoại
@@ -36,6 +37,7 @@ Yêu cầu: Windows 10 hoặc 11.
 | `Alt + Q` | Chọn vùng cần dịch (bắt đầu dịch tự động) |
 | `Alt + W` | Tạm dừng / tiếp tục dịch |
 | `Alt + E` | Dịch lại ngay |
+| `Alt + D` | Dịch nhanh một lần: khoanh vùng, xem bản dịch rồi thôi |
 | `Alt + H` | Ẩn / hiện khung dịch |
 | `Alt + S` | Mở cài đặt |
 | `Ctrl + Alt + X` | Thoát |

@@ -3,11 +3,14 @@ import logging
 import os
 import queue
 import sys
+import threading
 import tkinter as tk
 from tkinter import messagebox
 
 from . import config, theme
 from .overlay import Overlay
+from .quick import QuickPopup
+from .single_instance import SingleInstance
 from .selector import RegionSelector
 from .settings import SettingsWindow
 from . import winutil
@@ -33,6 +36,7 @@ class App:
         self.region = None
         self.settings = None
         self.user_hidden = False           # nguoi dung tu an khung -> khong tu hien lai
+        self.quick_popup = None
         # Game dang gan voi vung dich (de nho vung va bam theo cua so game)
         self.game_hwnd = self.game_exe = self.game_origin = None
         self.game_suspended = False
@@ -87,6 +91,7 @@ class App:
             f"App đang chạy ở khay hệ thống (góc phải thanh taskbar).\n\n"
             f"{hk['select_region']}: chọn vùng cần dịch\n"
             f"{hk['toggle_auto']}: tạm dừng / tiếp tục\n"
+            f"{hk['quick_translate']}: dịch nhanh một lần\n"
             f"{hk['open_settings']}: mở cài đặt (ngôn ngữ, phím tắt, giao diện)")
 
     # --- lenh ---
@@ -241,6 +246,8 @@ class App:
     def _can_capture(self) -> bool:
         """Goi tu luong dich ngay truoc khi chup / gui dich: game dang gan ma bi che
         hoac thu nho thi khong chup, tranh dich nham chu cua cua so khac."""
+        if self.selecting:               # dang khoanh vung: man hinh bi lop chon vung phu mo
+            return False
         hwnd = self.game_hwnd
         if not hwnd or not winutil.IS_WIN:
             return True
@@ -293,6 +300,61 @@ class App:
             return
         self.overlay.set_status("↻ đang dịch lại…")
         self.worker.translate_once()
+
+    # --- dich nhanh mot lan ---
+    def cmd_quick_translate(self):
+        if self.selecting:
+            return
+        if self.quick_popup:
+            self.quick_popup.close()
+        self.selecting = True
+        RegionSelector(self.root, self._on_quick_region)
+
+    def _on_quick_region(self, region):
+        self.selecting = False
+        if region is None:
+            return
+        popup = QuickPopup(self.root, self.cfg, region, on_close=self._on_quick_closed)
+        self.quick_popup = popup
+        cfg = self.cfg
+
+        def work():
+            import time
+            import mss
+            from PIL import Image
+            from . import ocr as ocr_mod
+            from .translator import Translator
+            try:
+                time.sleep(0.15)          # cho lop chon vung bien mat han
+                left, top, w, h = region
+                with mss.mss() as sct:
+                    shot = sct.grab({"left": left, "top": top, "width": w, "height": h})
+                img = Image.frombytes("RGB", shot.size, shot.rgb)
+                scale = float(cfg.get("upscale", 1.0))
+                if scale > 1.0:
+                    img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                raw = ocr_mod.create(cfg).recognize(img).strip()
+                if not raw:
+                    self.post("quick_result", popup, "", "")
+                    return
+                original, translated = Translator(cfg).translate_dialogue(raw)
+                self.post("quick_result", popup, original, translated)
+            except Exception as e:
+                log.exception("Dich nhanh that bai")
+                self.post("quick_error", popup, str(e))
+        threading.Thread(target=work, daemon=True).start()
+
+    def cmd_quick_result(self, popup, original, translated):
+        popup.show_result(original, translated)
+        if translated:
+            self.overlay.add_entry(original, translated)      # luu vao lich su
+
+    def cmd_quick_error(self, popup, msg):
+        popup.show_error(msg)
+
+    def _on_quick_closed(self, popup):
+        if self.quick_popup is popup:
+            self.quick_popup = None
 
     def _show_overlay(self):
         """Hien khung dich, tru khi nguoi dung da tu an."""
@@ -412,6 +474,7 @@ class App:
             item("select_region", default=True),
             item("toggle_auto"),
             item("translate_once"),
+            item("quick_translate"),
             item("toggle_overlay"),
             pystray.MenuItem("Quên vùng của app hiện tại", lambda: self.post("forget_game")),
             pystray.Menu.SEPARATOR,
@@ -447,4 +510,20 @@ def main():
         handlers=[logging.FileHandler(os.path.join(config.app_dir(), "app.log"), encoding="utf-8")]
         + ([logging.StreamHandler()] if sys.stderr else []),
     )
-    App().run()
+    instance = SingleInstance()
+    if not instance.acquire():
+        log.info("App da dang chay, bat cua so cai dat cua ban dang chay")
+        if not SingleInstance.notify("open_settings"):
+            try:
+                root = tk.Tk()
+                root.withdraw()
+                messagebox.showinfo("Screen Translator",
+                                    "App đang chạy rồi. Tìm biểu tượng ở khay hệ thống "
+                                    "(góc phải thanh taskbar).")
+                root.destroy()
+            except Exception:
+                pass
+        return
+    app = App()
+    instance.listen(lambda cmd: app.post(cmd) if cmd in ("open_settings",) else None)
+    app.run()

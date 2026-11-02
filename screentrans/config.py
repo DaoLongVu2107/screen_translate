@@ -29,6 +29,7 @@ HOTKEY_NAMES = {
     "toggle_auto": "Tạm dừng / tiếp tục",
     "translate_once": "Dịch lại ngay",
     "toggle_overlay": "Ẩn / hiện khung dịch",
+    "quick_translate": "Dịch nhanh một lần",
     "open_settings": "Mở cài đặt",
     "quit": "Thoát",
 }
@@ -39,6 +40,7 @@ DEFAULTS = {
         "toggle_auto": "alt+w",
         "translate_once": "alt+e",
         "toggle_overlay": "alt+h",
+        "quick_translate": "alt+d",
         "open_settings": "alt+s",
         "quit": "ctrl+alt+x",
     },
