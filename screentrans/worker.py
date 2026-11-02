@@ -1,5 +1,4 @@
 """Luong nen: chup vung -> so sanh thay doi -> OCR -> dich -> gui ket qua."""
-import difflib
 import logging
 import threading
 import time
@@ -24,7 +23,6 @@ def _diff(a: Image.Image, b: Image.Image) -> float:
 
 
 MIN_GAP = 1.0          # toi thieu 1 giay giua hai lan goi may dich
-SIMILAR = 0.9          # chu giong >= 90% cau vua dich -> coi nhu khong doi (nhieu OCR)
 
 
 def _is_rate_limit(e: Exception) -> bool:
@@ -33,21 +31,9 @@ def _is_rate_limit(e: Exception) -> bool:
             or getattr(e, "status_code", None) == 429 or getattr(e, "code", None) == 429)
 
 
-def _norm(s: str) -> str:
-    return "".join(c for c in s.lower() if c.isalnum())
-
-
-def _similar(a: str, b: str) -> bool:
-    """Hai lan doc OCR co phai cung mot cau khong (chiu duoc vai ky tu doc lech).
-    Cau ngan thi phai giong het, vi "Yes, Doctor." va "No, Doctor." chi khac vai chu."""
-    if not a or not b:
-        return False
-    na, nb = _norm(a), _norm(b)
-    if na == nb:
-        return True
-    if min(len(na), len(nb)) < 20:
-        return False
-    return difflib.SequenceMatcher(None, na, nb).ratio() >= SIMILAR
+def _same(a, b) -> bool:
+    """Giong het nhau (chi bo qua khac biet ve dau cach / xuong dong)."""
+    return bool(a and b) and " ".join(a.split()) == " ".join(b.split())
 
 
 class TranslateWorker(threading.Thread):
@@ -158,15 +144,15 @@ class TranslateWorker(threading.Thread):
         text = engine.recognize(img).strip()
 
         if not forced:
-            if not text or text == self._last_text or _similar(text, self._last_text):
+            # Chu giong het cau vua dich (man hinh dung yen) -> khong gui lai
+            if not text or _same(text, self._last_text):
                 self._candidate = None
                 return
             # Chi dich khi hai lan doc lien tiep ra cung mot chu: tranh dich tung chu
-            # khi game hien chu kieu danh may, va tranh dich nhieu OCR
-            if not _similar(text, self._candidate):
+            # khi game hien chu kieu danh may
+            if not _same(text, self._candidate):
                 self._candidate = text
                 return
-            text = max(text, self._candidate, key=len)
         if not text:
             return
         if not self.gate():          # trong luc OCR nguoi dung da chuyen cua so

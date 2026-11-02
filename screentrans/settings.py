@@ -203,10 +203,8 @@ class SettingsWindow:
         ttk.Separator(opts).pack(fill="x", pady=(0, 10))
         self.clean_ocr = tk.BooleanVar(value=self.cfg.get("clean_ocr", True))
         self.split_speaker = tk.BooleanVar(value=self.cfg.get("split_speaker", True))
-        self.google_context = tk.BooleanVar(value=self.cfg.get("google_context", True))
         for var, text in ((self.clean_ocr, "Làm sạch chữ OCR trước khi dịch"),
-                          (self.split_speaker, "Tách tên người nói, giữ nguyên tên"),
-                          (self.google_context, "Gửi kèm câu trước để Google Dịch hiểu ngữ cảnh")):
+                          (self.split_speaker, "Tách tên người nói, giữ nguyên tên")):
             ttk.Checkbutton(opts, text=text, variable=var).pack(anchor="w", pady=2)
 
         self._current_ai = None
@@ -483,7 +481,6 @@ class SettingsWindow:
         c["ai"] = copy.deepcopy(self.ai_store)
         c["clean_ocr"] = bool(self.clean_ocr.get())
         c["split_speaker"] = bool(self.split_speaker.get())
-        c["google_context"] = bool(self.google_context.get())
         c["ai_notes"] = self.ai_notes.get("1.0", "end").strip()
         c["ai_context_lines"] = int(self.ai_context.get())
         o = c["overlay"]
