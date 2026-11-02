@@ -10,9 +10,9 @@ from .ai_translator import PROVIDERS as AI_PROVIDERS
 from .config import DEFAULTS, HOTKEY_NAMES, LANGUAGES
 
 POSITIONS = {"below": "Bên dưới vùng chọn", "above": "Bên trên vùng chọn", "over": "Đè lên vùng chọn"}
-OCR_ENGINES = {"windows": "Windows OCR (có sẵn, nhanh)", "tesseract": "Tesseract"}
-TRANSLATORS = {"google": "Google Dịch (miễn phí)", "deepl": "DeepL (cần API key)",
-               **{k: f"AI – {v[0]}" for k, v in AI_PROVIDERS.items()}}
+OCR_ENGINES = {"windows": "Windows OCR", "tesseract": "Tesseract"}
+TRANSLATORS = {"google": "Google Dịch", "deepl": "DeepL",
+               **{k: v[0] for k, v in AI_PROVIDERS.items()}}
 
 
 class _Choice:
@@ -51,6 +51,7 @@ class SettingsWindow:
         self._tab_ocr(self._tab(nb, "Nhận dạng chữ"))
         self._tab_translator(self._tab(nb, "Dịch"))
         self._tab_appearance(self._tab(nb, "Giao diện"))
+        self._tab_games(self._tab(nb, "Game"))
         self._tab_hotkeys(self._tab(nb, "Phím tắt"))
 
         bar = ttk.Frame(w)
@@ -81,7 +82,7 @@ class SettingsWindow:
         names = {k: v[0] for k, v in LANGUAGES.items()}
         self.src = _Choice(f, names, self.cfg["source_lang"])
         self.dst = _Choice(f, names, self.cfg["target_lang"])
-        self._row(f, 0, "Ngôn ngữ gốc (trên màn hình)", self.src.widget,
+        self._row(f, 0, "Ngôn ngữ gốc", self.src.widget,
                   "Với Windows OCR, máy cần cài gói ngôn ngữ này: Settings → Time & language → "
                   "Language & region → Add a language.")
         self._row(f, 2, "Dịch sang", self.dst.widget)
@@ -97,14 +98,14 @@ class SettingsWindow:
         self._row(f, 1, "Đường dẫn tesseract.exe", box)
 
         self.interval = tk.IntVar(value=self.cfg["interval_ms"])
-        self._row(f, 2, "Tần suất quét (ms)",
+        self._row(f, 2, "Tần suất quét",
                   ttk.Spinbox(f, from_=100, to=5000, increment=100, textvariable=self.interval, width=8),
-                  "Càng nhỏ thì dịch càng nhanh nhưng tốn CPU hơn.")
+                  "Tính bằng mili giây. Càng nhỏ thì dịch càng nhanh nhưng tốn CPU hơn.")
 
         self.sensitivity = tk.DoubleVar(value=self.cfg["change_threshold"] * 100)
-        self._row(f, 4, "Ngưỡng thay đổi (%)",
+        self._row(f, 4, "Ngưỡng thay đổi",
                   ttk.Spinbox(f, from_=0.5, to=30, increment=0.5, textvariable=self.sensitivity, width=8),
-                  "Tăng lên nếu nền động (video, hiệu ứng) làm app dịch liên tục.")
+                  "Tính theo %. Tăng lên nếu nền có video, hiệu ứng động làm app dịch liên tục.")
 
         self.upscale = tk.DoubleVar(value=self.cfg["upscale"])
         self._row(f, 6, "Phóng to ảnh trước khi đọc",
@@ -121,7 +122,7 @@ class SettingsWindow:
         self.deepl_frame.columnconfigure(1, weight=1)
         self.deepl_key = tk.StringVar(value=self.cfg["deepl_api_key"])
         self._row(self.deepl_frame, 0, "DeepL API key", ttk.Entry(self.deepl_frame, textvariable=self.deepl_key, show="•"),
-                  "Lấy miễn phí tại deepl.com/pro-api (gói Free).")
+                  "Lấy miễn phí tại deepl.com/pro-api, chọn gói Free.")
 
         # AI: moi nha cung cap co key + model rieng
         self.ai_store = copy.deepcopy(self.cfg["ai"])
@@ -262,12 +263,49 @@ class SettingsWindow:
         self._row(f, 4, "Màu nền", self._color_button(f, self.bg))
 
         self.opacity = tk.IntVar(value=int(o["opacity"] * 100))
-        self._row(f, 5, "Độ đậm nền (%)",
+        self._row(f, 5, "Độ đậm nền",
                   ttk.Spinbox(f, from_=20, to=100, increment=5, textvariable=self.opacity, width=8))
 
         self.show_original = tk.BooleanVar(value=o["show_original"])
         ttk.Checkbutton(f, text="Hiện cả chữ gốc phía trên bản dịch",
                         variable=self.show_original).grid(row=6, column=1, sticky="w", pady=5)
+
+    def _tab_games(self, f):
+        self.remember_games = tk.BooleanVar(value=self.cfg.get("remember_games", True))
+        self.auto_start_games = tk.BooleanVar(value=self.cfg.get("auto_start_games", True))
+        ttk.Checkbutton(f, text="Nhớ vùng dịch theo từng game", variable=self.remember_games
+                        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=4)
+        ttk.Label(f, text="Khi chọn vùng trên cửa sổ game, app nhớ vùng đó theo game. Kéo cửa sổ "
+                          "game đi đâu, vùng dịch đi theo; thu nhỏ hoặc tắt game thì tự dừng.",
+                  foreground="#777", wraplength=440).grid(row=1, column=0, columnspan=2, sticky="w")
+        ttk.Checkbutton(f, text="Tự bật dịch khi mở game đã lưu vùng", variable=self.auto_start_games
+                        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 4))
+
+        ttk.Label(f, text="Game đã lưu vùng:").grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 2))
+        self.profiles = copy.deepcopy(self.cfg.get("profiles", {}))
+        self._deleted_profiles = set()
+        self.profile_list = tk.Listbox(f, height=6, activestyle="none")
+        self.profile_list.grid(row=4, column=0, columnspan=2, sticky="we")
+        self._fill_profiles()
+        ttk.Button(f, text="Xóa game đã chọn", command=self._delete_profile
+                   ).grid(row=5, column=0, sticky="w", pady=6)
+
+    def _fill_profiles(self):
+        self.profile_list.delete(0, "end")
+        self._profile_keys = list(self.profiles)
+        for exe in self._profile_keys:
+            title = self.profiles[exe].get("title") or ""
+            self.profile_list.insert("end", f"{exe}   —   {title}" if title else exe)
+        if not self._profile_keys:
+            self.profile_list.insert("end", "Chưa có. Bấm phím chọn vùng trên cửa sổ game để lưu.")
+
+    def _delete_profile(self):
+        sel = self.profile_list.curselection()
+        if sel and self._profile_keys:
+            exe = self._profile_keys[sel[0]]
+            self.profiles.pop(exe, None)
+            self._deleted_profiles.add(exe)
+            self._fill_profiles()
 
     def _tab_hotkeys(self, f):
         self.hk_vars = {}
@@ -280,7 +318,7 @@ class SettingsWindow:
                        command=lambda k=key: self._record(k)).pack(side="left", padx=4)
             ttk.Button(box, text="Xóa", width=5, command=lambda v=var: v.set("")).pack(side="left")
             self._row(f, r, label, box)
-        ttk.Label(f, text="Bấm “Đổi” rồi nhấn tổ hợp phím mới (Esc để hủy).",
+        ttk.Label(f, text="Bấm “Đổi” rồi nhấn tổ hợp phím mới, Esc để hủy.",
                   foreground="#777").grid(row=len(HOTKEY_NAMES), column=1, sticky="w", pady=(8, 0))
 
     # --- hanh dong ---
@@ -354,6 +392,9 @@ class SettingsWindow:
         o["opacity"] = max(0.2, min(1.0, int(self.opacity.get()) / 100))
         o["show_original"] = bool(self.show_original.get())
         c["hotkeys"] = {k: v.get() for k, v in self.hk_vars.items()}
+        c["remember_games"] = bool(self.remember_games.get())
+        c["auto_start_games"] = bool(self.auto_start_games.get())
+        c["_deleted_profiles"] = sorted(self._deleted_profiles)
         return c
 
     def save(self):

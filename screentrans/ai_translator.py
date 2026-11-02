@@ -6,13 +6,13 @@ log = logging.getLogger(__name__)
 
 # ten -> (ten hien thi, model goi y, trang lay key)
 PROVIDERS = {
-    "claude": ("Claude (Anthropic)", ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
+    "claude": ("Claude", ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
                "https://platform.claude.com/settings/keys"),
-    "openai": ("ChatGPT (OpenAI)", ["gpt-5.4-mini", "gpt-5.4"],
+    "openai": ("ChatGPT", ["gpt-5.4-mini", "gpt-5.4"],
                "https://platform.openai.com/api-keys"),
-    "gemini": ("Gemini (Google)", ["gemini-flash-latest", "gemini-pro-latest"],
+    "gemini": ("Gemini", ["gemini-flash-latest", "gemini-pro-latest"],
                "https://aistudio.google.com/apikey"),
-    "grok": ("Grok (xAI)", ["grok-4.3", "grok-4.6"], "https://console.x.ai"),
+    "grok": ("Grok", ["grok-4.3", "grok-4.6"], "https://console.x.ai"),
 }
 XAI_BASE_URL = "https://api.x.ai/v1"
 # Model Claude ho tro tu chuyen sang model khac khi bi tu choi (server-side fallback)

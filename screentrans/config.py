@@ -11,8 +11,8 @@ log = logging.getLogger(__name__)
 LANGUAGES = {
     "en": ("Tiếng Anh", "en-US", "eng", "en"),
     "ja": ("Tiếng Nhật", "ja", "jpn", "ja"),
-    "zh-CN": ("Tiếng Trung (giản thể)", "zh-Hans-CN", "chi_sim", "zh-CN"),
-    "zh-TW": ("Tiếng Trung (phồn thể)", "zh-Hant-TW", "chi_tra", "zh-TW"),
+    "zh-CN": ("Tiếng Trung giản thể", "zh-Hans-CN", "chi_sim", "zh-CN"),
+    "zh-TW": ("Tiếng Trung phồn thể", "zh-Hant-TW", "chi_tra", "zh-TW"),
     "ko": ("Tiếng Hàn", "ko", "kor", "ko"),
     "ru": ("Tiếng Nga", "ru", "rus", "ru"),
     "fr": ("Tiếng Pháp", "fr-FR", "fra", "fr"),
@@ -67,8 +67,14 @@ DEFAULTS = {
         "bg": "#101010",
         "opacity": 0.85,
         "min_width": 320,
+        "height": 160,
         "show_original": False,
     },
+    "remember_games": True,           # nho vung dich theo tung game (theo ten file exe)
+    "auto_start_games": True,         # mo game da luu vung -> tu bat dich
+    # "Game.exe": {"title": ..., "region": [dx, dy, w, h], "overlay": [dx, dy, w, h]}
+    # (toa do tinh tu goc tren-trai vung noi dung cua cua so game)
+    "profiles": {},
 }
 
 

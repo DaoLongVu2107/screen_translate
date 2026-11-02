@@ -63,6 +63,11 @@ class TranslateWorker(threading.Thread):
         self.auto = True
         self._wake.set()
 
+    def move_region(self, region):
+        """Cua so game bi keo di: doi vi tri vung nhung giu nguyen trang thai dich."""
+        self.region = region
+        self._last_sig = None
+
     def set_auto(self, value: bool):
         self.auto = value
         self._wake.set()
