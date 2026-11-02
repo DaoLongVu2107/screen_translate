@@ -153,4 +153,6 @@ class TranslateWorker(threading.Thread):
         self._candidate = None
         self._last_text = text
         self._last_call = time.monotonic()
-        self.on_result(text, translator.translate(text))
+        original, translated = translator.translate_dialogue(text)
+        if translated:
+            self.on_result(original, translated)

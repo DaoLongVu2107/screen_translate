@@ -55,6 +55,9 @@ DEFAULTS = {
         "gemini": {"api_key": "", "model": "gemini-flash-latest"},
         "grok": {"api_key": "", "model": "grok-4.3"},
     },
+    "clean_ocr": True,                # lam sach loi OCR truoc khi dich
+    "split_speaker": True,            # tach ten nguoi noi, giu nguyen ten
+    "google_context": True,           # gui kem cau truoc cho Google Dich mien phi
     "ai_notes": "",                   # bang ten rieng / van phong cho AI
     "ai_context_lines": 3,            # so cau truoc gui kem de AI hieu ngu canh
     "interval_ms": 600,               # chu ky chup man hinh khi dich lien tuc

@@ -1,4 +1,5 @@
 """May dich, co cache de khong goi lai cung 1 cau."""
+import re
 from collections import OrderedDict
 
 from .ai_translator import PROVIDERS as AI_PROVIDERS, AiTranslator
@@ -126,6 +127,11 @@ class Translator:
     def __init__(self, cfg: dict):
         from .config import lang_info
         src, dst = lang_info(cfg["source_lang"])[3], lang_info(cfg["target_lang"])[3]
+        self._lang = cfg["source_lang"]
+        self._clean = cfg.get("clean_ocr", True)
+        self._speaker = cfg.get("split_speaker", True)
+        self._context = cfg.get("google_context", True)
+        self._prev = ""
         engine = cfg["translator"]
         if engine in AI_PROVIDERS:
             ai = cfg["ai"][engine]
@@ -145,12 +151,41 @@ class Translator:
             self._impl = GoogleFreeTranslator(src, dst)
         self._cache: OrderedDict[str, str] = OrderedDict()
 
+    def translate_dialogue(self, raw: str):
+        """Chu OCR tho -> (chu goc de hien thi, ban dich). Lam sach, tach ten nguoi noi,
+        chi dich loi thoai va giu nguyen ten."""
+        from .textproc import prepare
+        name, body = prepare(raw, self._lang, clean=self._clean, speaker=self._speaker)
+        if not body:
+            return raw, ""
+        tr = self.translate(body)
+        if name:
+            return f"{name}: {body}", f"{name}: {tr}"
+        return body, tr
+
     def translate(self, text: str) -> str:
         if text in self._cache:
             self._cache.move_to_end(text)
+            self._prev = text
             return self._cache[text]
-        result = self._impl.translate(text[:4900]) or ""
+        if self._context and self._prev and isinstance(self._impl, GoogleFreeTranslator):
+            result = self._translate_with_context(text)
+        else:
+            result = self._impl.translate(text[:4900]) or ""
         self._cache[text] = result
+        self._prev = text
         if len(self._cache) > 500:
             self._cache.popitem(last=False)
         return result
+
+    def _translate_with_context(self, text: str) -> str:
+        """Gui cau truoc + cau hien tai trong mot lan de Google hieu mach hoi thoai,
+        roi chi lay phan dich cua cau hien tai."""
+        prev = self._prev[-600:]
+        if not re.search(r"[.!?…。！？」』\"']$", prev):
+            prev += "。" if re.search(r"[\u3040-\u30ff\u3400-\u9fff]$", prev) else "."
+        out = self._impl.translate(f"{prev}\n{text[:4000]}") or ""
+        parts = [p.strip() for p in out.split("\n") if p.strip()]
+        if len(parts) == 2:
+            return parts[1]
+        return self._impl.translate(text[:4900]) or ""     # khong tach duoc -> dich rieng

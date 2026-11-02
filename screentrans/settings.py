@@ -197,6 +197,18 @@ class SettingsWindow:
         self.test_result.pack(side="left", padx=8)
         test_box.grid(row=7, column=1, sticky="w", pady=(8, 0))
 
+        # Xu ly chu truoc khi dich (ap dung cho moi may dich)
+        opts = ttk.Frame(f)
+        opts.grid(row=2, column=0, columnspan=2, sticky="we", pady=(14, 0))
+        ttk.Separator(opts).pack(fill="x", pady=(0, 10))
+        self.clean_ocr = tk.BooleanVar(value=self.cfg.get("clean_ocr", True))
+        self.split_speaker = tk.BooleanVar(value=self.cfg.get("split_speaker", True))
+        self.google_context = tk.BooleanVar(value=self.cfg.get("google_context", True))
+        for var, text in ((self.clean_ocr, "Làm sạch chữ OCR trước khi dịch"),
+                          (self.split_speaker, "Tách tên người nói, giữ nguyên tên"),
+                          (self.google_context, "Gửi kèm câu trước để Google Dịch hiểu ngữ cảnh")):
+            ttk.Checkbutton(opts, text=text, variable=var).pack(anchor="w", pady=2)
+
         self._current_ai = None
         self._show_engine()
 
@@ -462,6 +474,9 @@ class SettingsWindow:
         c["google_cloud_api_key"] = self.gcloud_key.get().strip()
         self._save_ai_fields()
         c["ai"] = copy.deepcopy(self.ai_store)
+        c["clean_ocr"] = bool(self.clean_ocr.get())
+        c["split_speaker"] = bool(self.split_speaker.get())
+        c["google_context"] = bool(self.google_context.get())
         c["ai_notes"] = self.ai_notes.get("1.0", "end").strip()
         c["ai_context_lines"] = int(self.ai_context.get())
         o = c["overlay"]

@@ -1,30 +1,14 @@
 """Nhan dang chu (OCR): Windows OCR co san trong Win10/11, hoac Tesseract."""
 import asyncio
-import re
 
 from PIL import Image
 
-_CJK = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]")
+from .textproc import _fix_cjk_spaces, join_lines as _join_lines  # noqa: F401
 
 
-def _join_lines(lines: list[str]) -> str:
-    lines = [ln.strip() for ln in lines if ln.strip()]
-    if not lines:
-        return ""
-    text = lines[0]
-    for ln in lines[1:]:
-        if text.endswith("-") and not text.endswith("--"):
-            text = text[:-1] + ln          # noi tu bi ngat dong: "trans-" + "late"
-        elif _CJK.search(text[-1:]) or _CJK.search(ln[:1]):
-            text += ln                     # tieng Trung/Nhat khong dung dau cach
-        else:
-            text += " " + ln
-    return text
-
-
-def _fix_cjk_spaces(line: str) -> str:
-    # Windows OCR chen dau cach giua tung chu Han/Kana -> bo di
-    return re.sub(r"(?<=[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef]) (?=[\u3040-\u30ff\u3400-\u9fff\uff00-\uffef])", "", line)
+def _lines(lines) -> str:
+    """Tra ve cac dong tho, moi dong cach nhau boi \\n (lam sach / noi dong o textproc)."""
+    return "\n".join(_fix_cjk_spaces(ln).strip() for ln in lines if ln and ln.strip())
 
 
 class WindowsOcr:
@@ -35,8 +19,7 @@ class WindowsOcr:
     def recognize(self, img: Image.Image) -> str:
         import winocr
         result = asyncio.run(winocr.recognize_pil(img.convert("RGBA"), self.lang))
-        lines = [_fix_cjk_spaces(line.text) for line in result.lines]
-        return _join_lines(lines)
+        return _lines(line.text for line in result.lines)
 
 
 class TesseractOcr:
@@ -49,7 +32,7 @@ class TesseractOcr:
     def recognize(self, img: Image.Image) -> str:
         import pytesseract
         raw = pytesseract.image_to_string(img.convert("L"), lang=self.lang)
-        return _join_lines(_fix_cjk_spaces(ln) for ln in raw.splitlines())
+        return _lines(raw.splitlines())
 
 
 def create(cfg: dict):
