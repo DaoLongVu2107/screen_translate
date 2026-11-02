@@ -61,6 +61,7 @@ class App:
             self.cfg,
             on_result=lambda src, dst: self.post("result", src, dst),
             on_error=lambda msg: self.post("error", msg),
+            on_status=lambda msg: self.post("status", msg),
         )
         w.start()
         return w
@@ -116,9 +117,12 @@ class App:
         if self.worker.auto:
             self.overlay.set_status("● đang dịch")
 
+    def cmd_status(self, msg):
+        self.overlay.set_status(msg)
+
     def cmd_error(self, msg):
         log.error(msg)
-        self.overlay.set_status("⚠ lỗi – xem app.log")
+        self.overlay.set_status("⚠ " + msg.splitlines()[0][:80])
         if "khoi tao" in msg.lower() or "khởi tạo" in msg.lower():
             messagebox.showerror("Screen Translator", msg)
 
