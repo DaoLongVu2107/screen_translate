@@ -76,6 +76,7 @@ DEFAULTS = {
     },
     "remember_games": True,           # nho vung dich theo tung game (theo ten file exe)
     "auto_start_games": True,         # mo game da luu vung -> tu bat dich
+    "pause_when_unfocused": True,     # chi dich khi game dang o phia truoc
     # "Game.exe": {"title": ..., "region": [dx, dy, w, h], "overlay": [dx, dy, w, h]}
     # (toa do tinh tu goc tren-trai vung noi dung cua cua so game)
     "profiles": {},

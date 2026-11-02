@@ -33,17 +33,31 @@ def _is_rate_limit(e: Exception) -> bool:
             or getattr(e, "status_code", None) == 429 or getattr(e, "code", None) == 429)
 
 
+def _norm(s: str) -> str:
+    return "".join(c for c in s.lower() if c.isalnum())
+
+
 def _similar(a: str, b: str) -> bool:
-    return bool(a and b) and difflib.SequenceMatcher(None, a, b).ratio() >= SIMILAR
+    """Hai lan doc OCR co phai cung mot cau khong (chiu duoc vai ky tu doc lech).
+    Cau ngan thi phai giong het, vi "Yes, Doctor." va "No, Doctor." chi khac vai chu."""
+    if not a or not b:
+        return False
+    na, nb = _norm(a), _norm(b)
+    if na == nb:
+        return True
+    if min(len(na), len(nb)) < 20:
+        return False
+    return difflib.SequenceMatcher(None, na, nb).ratio() >= SIMILAR
 
 
 class TranslateWorker(threading.Thread):
-    def __init__(self, cfg: dict, on_result, on_error, on_status=None):
+    def __init__(self, cfg: dict, on_result, on_error, on_status=None, gate=None):
         super().__init__(daemon=True)
         self.cfg = cfg
         self.on_result = on_result     # on_result(original, translated)
         self.on_error = on_error       # on_error(message)
         self.on_status = on_status or (lambda msg: None)
+        self.gate = gate or (lambda: True)   # tra ve False -> khong chup / khong dich luc nay
         self._candidate = None         # chu OCR vua doc, cho lan doc sau xac nhan
         self._last_call = 0.0
         self._cooldown_until = 0.0
@@ -66,6 +80,11 @@ class TranslateWorker(threading.Thread):
     def move_region(self, region):
         """Cua so game bi keo di: doi vi tri vung nhung giu nguyen trang thai dich."""
         self.region = region
+        self._last_sig = None
+
+    def drop_pending(self):
+        """Bo chu dang cho xac nhan (vd. vua chuyen sang cua so khac)."""
+        self._candidate = None
         self._last_sig = None
 
     def set_auto(self, value: bool):
@@ -118,6 +137,9 @@ class TranslateWorker(threading.Thread):
                         self.on_error(str(e))
 
     def _tick(self, sct, engine, translator, forced: bool):
+        if not self.gate():
+            self._candidate = None
+            return
         left, top, w, h = self.region
         shot = sct.grab({"left": left, "top": top, "width": w, "height": h})
         img = Image.frombytes("RGB", shot.size, shot.rgb)
@@ -146,6 +168,9 @@ class TranslateWorker(threading.Thread):
                 return
             text = max(text, self._candidate, key=len)
         if not text:
+            return
+        if not self.gate():          # trong luc OCR nguoi dung da chuyen cua so
+            self._candidate = None
             return
         wait = MIN_GAP - (time.monotonic() - self._last_call)
         if wait > 0:

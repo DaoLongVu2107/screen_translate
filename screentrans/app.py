@@ -78,6 +78,7 @@ class App:
             on_result=lambda src, dst: self.post("result", src, dst),
             on_error=lambda msg: self.post("error", msg),
             on_status=lambda msg: self.post("status", msg),
+            gate=self._can_capture,
         )
         w.start()
         return w
@@ -203,19 +204,23 @@ class App:
                 self.overlay.set_status("game đã đóng")
                 self.region = None
                 self._detach_game()
-            elif winutil.window_minimized(hwnd):               # game bi thu nho
-                if not self.game_suspended:
+            else:
+                reason = self._suspend_reason(hwnd)
+                if reason and not self.game_suspended:          # thu nho / chuyen cua so khac
                     self.game_suspended = True
                     self._was_auto = self.worker.auto
                     self.worker.set_auto(False)
+                    self.worker.drop_pending()
                     self.overlay.hide()
-            else:
-                if self.game_suspended:                        # mo lai game
+                    log.info("Tam dung dich: %s", reason)
+                elif not reason and self.game_suspended:        # quay lai game
                     self.game_suspended = False
                     self.worker.set_auto(self._was_auto)
                     self.overlay.show()
+                    self.overlay.set_status(self._running_status() if self._was_auto else "❚❚ tạm dừng")
                 origin = winutil.client_origin(hwnd)
-                if origin and self.region and origin != self.game_origin:   # cua so bi keo di
+                if not self.game_suspended and origin and self.region \
+                        and origin != self.game_origin:                     # cua so bi keo di
                     dx, dy = origin[0] - self.game_origin[0], origin[1] - self.game_origin[1]
                     left, top, w, h = self.region
                     self.region = (left + dx, top + dy, w, h)
@@ -234,6 +239,32 @@ class App:
         if exe and exe in self.cfg["profiles"] and not winutil.window_minimized(fg):
             self._load_profile(fg, exe)
 
+    def _can_capture(self) -> bool:
+        """Goi tu luong dich ngay truoc khi chup / gui dich: game dang gan ma bi che
+        hoac thu nho thi khong chup, tranh dich nham chu cua cua so khac."""
+        hwnd = self.game_hwnd
+        if not hwnd or not winutil.IS_WIN:
+            return True
+        try:
+            return self._suspend_reason(hwnd) is None
+        except Exception:
+            return True
+
+    def _suspend_reason(self, hwnd):
+        """Ly do tam dung dich (None = cu dich binh thuong)."""
+        if winutil.window_minimized(hwnd):
+            return "game bị thu nhỏ"
+        if not self.cfg.get("pause_when_unfocused", True):
+            return None
+        fg = winutil.foreground_window()
+        if not fg or fg == hwnd:
+            return None
+        pid = winutil.window_pid(fg)
+        # Cua so cua chinh app (khung dich, cai dat) hoac hop thoai phu cua game -> van dich
+        if pid == os.getpid() or pid == winutil.window_pid(hwnd):
+            return None
+        return "game không ở phía trước"
+
     def cmd_forget_game(self):
         if not self.game_exe:
             self.overlay.set_status("vùng hiện tại không gắn với game nào")
@@ -248,6 +279,9 @@ class App:
     def cmd_toggle_auto(self):
         if not self.region:
             return self.cmd_select_region()
+        if self.game_suspended:          # dang tam dung vi roi game: doi trang thai khi quay lai
+            self._was_auto = not self._was_auto
+            return
         on = not self.worker.auto
         self.worker.set_auto(on)
         self.overlay.set_status(self._running_status() if on else "❚❚ tạm dừng")
@@ -256,6 +290,8 @@ class App:
     def cmd_translate_once(self):
         if not self.region:
             return self.cmd_select_region()
+        if self.game_suspended:          # khong chup khi game dang bi che / thu nho
+            return
         self.overlay.set_status("↻ đang dịch lại…")
         self.worker.translate_once()
 

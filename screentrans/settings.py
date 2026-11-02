@@ -369,15 +369,22 @@ class SettingsWindow:
         ttk.Checkbutton(f, text="Tự bật dịch khi mở game đã lưu vùng", variable=self.auto_start_games
                         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 4))
 
-        ttk.Label(f, text="Game đã lưu vùng:").grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 2))
+        self.pause_unfocused = tk.BooleanVar(value=self.cfg.get("pause_when_unfocused", True))
+        ttk.Checkbutton(f, text="Chỉ dịch khi game đang ở phía trước", variable=self.pause_unfocused
+                        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        ttk.Label(f, text="Chuyển sang cửa sổ khác thì tạm dừng và ẩn khung dịch, tránh dịch nhầm chữ "
+                          "của cửa sổ khác. Quay lại game thì dịch tiếp.",
+                  foreground=HINT, wraplength=440).grid(row=4, column=0, columnspan=2, sticky="w")
+
+        ttk.Label(f, text="Game đã lưu vùng:").grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 2))
         self.profiles = copy.deepcopy(self.cfg.get("profiles", {}))
         self._deleted_profiles = set()
         self.profile_list = tk.Listbox(f, height=6, activestyle="none", font=("Segoe UI", 10),
                                        **{k: v for k, v in FIELD.items() if k != "insertbackground"})
-        self.profile_list.grid(row=4, column=0, columnspan=2, sticky="we")
+        self.profile_list.grid(row=6, column=0, columnspan=2, sticky="we")
         self._fill_profiles()
         ttk.Button(f, text="Xóa game đã chọn", command=self._delete_profile
-                   ).grid(row=5, column=0, sticky="w", pady=6)
+                   ).grid(row=7, column=0, sticky="w", pady=6)
 
     def _fill_profiles(self):
         self.profile_list.delete(0, "end")
@@ -489,6 +496,7 @@ class SettingsWindow:
         c["hotkeys"] = {k: v.get() for k, v in self.hk_vars.items()}
         c["remember_games"] = bool(self.remember_games.get())
         c["auto_start_games"] = bool(self.auto_start_games.get())
+        c["pause_when_unfocused"] = bool(self.pause_unfocused.get())
         c["_deleted_profiles"] = sorted(self._deleted_profiles)
         return c
 
