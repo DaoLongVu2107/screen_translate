@@ -49,7 +49,7 @@ class Overlay:
         close = tk.Label(self.bar, text="✕", font=(family, 9), fg="#9a9a9a", bg=bar_bg,
                          padx=8, cursor="hand2")
         close.pack(side="right")
-        close.bind("<Button-1>", lambda e: self.hide())
+        close.bind("<Button-1>", lambda e: on_menu("hide_overlay"))
         close.bind("<Enter>", lambda e: close.configure(fg="#ffffff", bg="#c42b1c"))
         close.bind("<Leave>", lambda e: close.configure(fg="#9a9a9a", bg=bar_bg))
         self._bar_bg = bar_bg
@@ -98,7 +98,7 @@ class Overlay:
         m.add_separator()
         m.add_command(label="Quên vùng của game này", command=lambda: on_menu("forget_game"))
         m.add_command(label="Cài đặt…", command=lambda: on_menu("open_settings"))
-        m.add_command(label="Ẩn khung", command=self.hide)
+        m.add_command(label="Ẩn khung", command=lambda: on_menu("hide_overlay"))
         m.add_command(label="Thoát", command=lambda: on_menu("quit"))
         for wid in (self.bar, self.status, self.text, self.grip):
             wid.bind("<Button-3>", self._popup)

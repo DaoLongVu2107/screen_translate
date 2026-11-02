@@ -75,6 +75,7 @@ DEFAULTS = {
         "height": 160,
         "show_original": False,
     },
+    "ui_theme": "light",              # giao dien cua so cai dat: light | dark
     "remember_games": True,           # nho vung dich theo tung game (theo ten file exe)
     "auto_start_games": True,         # mo game da luu vung -> tu bat dich
     "pause_when_unfocused": True,     # chi dich khi game dang o phia truoc

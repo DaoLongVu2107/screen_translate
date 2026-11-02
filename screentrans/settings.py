@@ -8,18 +8,18 @@ import webbrowser
 
 from .ai_translator import PROVIDERS as AI_PROVIDERS
 from .config import DEFAULTS, HOTKEY_NAMES, LANGUAGES
+from . import theme
 from .winutil import dark_title_bar
 
-HINT = "#9a9a9a"
+HINT = "#8a8a8a"
 LABEL_W = 175         # cot nhan co dinh de cac o thang hang
-FIELD = dict(bg="#2b2b2b", fg="#ffffff", relief="flat", highlightthickness=1,
-             highlightbackground="#3c3c3c", highlightcolor="#4c9aff", selectbackground="#0060c0",
-             selectforeground="#ffffff", insertbackground="#ffffff")
 
 # ten, mau chu, mau nen
 THEMES = [("Tối", "#FFFFFF", "#101010"), ("Sáng", "#111111", "#F5F5F5"),
           ("Phụ đề vàng", "#FFE14D", "#000000"), ("Xanh đêm", "#E8F1FF", "#0F2A4A"),
           ("Xanh lá", "#B8FFB0", "#0B1F0E")]
+
+UI_THEMES = {"light": "Sáng", "dark": "Tối"}
 
 POSITIONS = {"below": "Bên dưới vùng chọn", "above": "Bên trên vùng chọn", "over": "Đè lên vùng chọn"}
 OCR_ENGINES = {"windows": "Windows OCR", "tesseract": "Tesseract"}
@@ -56,12 +56,13 @@ class SettingsWindow:
         w.resizable(False, False)
         w.attributes("-topmost", True)
         w.protocol("WM_DELETE_WINDOW", self.close)
-        w.configure(bg=ttk.Style().lookup("TFrame", "background") or "#1c1c1c")
-        dark_title_bar(w)
+        w.configure(bg=theme.palette()["bg"])
+        if theme.current == "dark":     # dat sau khi cua so hien de Windows ve lai thanh tieu de
+            w.after(30, lambda: (dark_title_bar(w), w.withdraw(), w.deiconify()))
 
         head = ttk.Frame(w, padding=(18, 14, 18, 0))
         head.pack(fill="x")
-        ttk.Label(head, text="Cài đặt", font=("Segoe UI Semibold", 18)).pack(side="left")
+        ttk.Label(head, text="Cài đặt", style="Title.TLabel").pack(side="left")
 
         nb = ttk.Notebook(w)
         nb.pack(fill="both", expand=True, padx=18, pady=(10, 0))
@@ -93,7 +94,7 @@ class SettingsWindow:
         ttk.Label(parent, text=label).grid(row=r, column=0, sticky="w", pady=6, padx=(0, 16))
         widget.grid(row=r, column=1, sticky="we", pady=6)
         if hint:
-            ttk.Label(parent, text=hint, foreground=HINT, wraplength=440).grid(
+            ttk.Label(parent, text=hint, foreground=theme.palette()["hint"], wraplength=440).grid(
                 row=r + 1, column=1, sticky="w")
 
     # --- cac tab ---
@@ -184,11 +185,11 @@ class SettingsWindow:
 
         ttk.Label(af, text="Ghi chú cho AI").grid(row=5, column=0, sticky="nw", pady=5)
         self.ai_notes = tk.Text(af, height=4, width=40, wrap="word", font=("Segoe UI", 10),
-                                padx=8, pady=6, **FIELD)
+                                padx=8, pady=6, **theme.field_options())
         self.ai_notes.insert("1.0", self.cfg.get("ai_notes", ""))
         self.ai_notes.grid(row=5, column=1, sticky="we", pady=5)
         ttk.Label(af, text="Ví dụ: “Doctor dịch là Tiến sĩ; giữ nguyên tên nhân vật; giọng văn trẻ trung.”",
-                  foreground=HINT, wraplength=380).grid(row=6, column=1, sticky="w")
+                  foreground=theme.palette()["hint"], wraplength=380).grid(row=6, column=1, sticky="w")
 
         test_box = ttk.Frame(af)
         self.test_btn = ttk.Button(test_box, text="Thử dịch", command=self._test_ai)
@@ -298,19 +299,22 @@ class SettingsWindow:
         key, model = self.ai_key.get().strip(), self.ai_model.get().strip()
         dst = LANGUAGES[self.dst.get()][0]
         self.test_btn.configure(state="disabled")
-        self.test_result.configure(text="Đang thử…", foreground=HINT)
+        self.test_result.configure(text="Đang thử…", foreground=theme.palette()["hint"])
 
         def done(result, err):
             self.test_btn.configure(state="normal")
             if err:
-                self.test_result.configure(text=f"Lỗi: {err}"[:200], foreground="#ff6b6b")
+                self.test_result.configure(text=f"Lỗi: {err}"[:200], foreground="#ff6b6b" if theme.current == "dark" else "#c42b1c")
             else:
-                self.test_result.configure(text=f"OK: {result}", foreground="#5cd65c")
+                self.test_result.configure(text=f"OK: {result}", foreground="#5cd65c" if theme.current == "dark" else "#0f7b0f")
         self._run_bg(lambda: AiTranslator(provider, key, model, "English", dst,
                                           context_lines=0).translate("Hello, how are you today?"), done)
 
     def _tab_appearance(self, f):
         o = self.cfg["overlay"]
+        self.ui_theme = _Choice(f, UI_THEMES, self.cfg.get("ui_theme", "light"))
+        self._row(f, 10, "Giao diện cửa sổ cài đặt", self.ui_theme.widget,
+                  "Đổi xong bấm Lưu, mở lại cửa sổ cài đặt để thấy giao diện mới.")
         self.position = _Choice(f, POSITIONS, o["position"])
         self._row(f, 0, "Vị trí khung dịch", self.position.widget)
 
@@ -379,7 +383,7 @@ class SettingsWindow:
                         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=4)
         ttk.Label(f, text="Khi chọn vùng trên cửa sổ game, app nhớ vùng đó theo game. Kéo cửa sổ "
                           "game đi đâu, vùng dịch đi theo; thu nhỏ hoặc tắt game thì tự dừng.",
-                  foreground=HINT, wraplength=440).grid(row=1, column=0, columnspan=2, sticky="w")
+                  foreground=theme.palette()["hint"], wraplength=440).grid(row=1, column=0, columnspan=2, sticky="w")
         ttk.Checkbutton(f, text="Tự bật dịch khi mở game đã lưu vùng", variable=self.auto_start_games
                         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 4))
 
@@ -388,13 +392,13 @@ class SettingsWindow:
                         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
         ttk.Label(f, text="Chuyển sang cửa sổ khác thì tạm dừng và ẩn khung dịch, tránh dịch nhầm chữ "
                           "của cửa sổ khác. Quay lại game thì dịch tiếp.",
-                  foreground=HINT, wraplength=440).grid(row=4, column=0, columnspan=2, sticky="w")
+                  foreground=theme.palette()["hint"], wraplength=440).grid(row=4, column=0, columnspan=2, sticky="w")
 
         ttk.Label(f, text="Game đã lưu vùng:").grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 2))
         self.profiles = copy.deepcopy(self.cfg.get("profiles", {}))
         self._deleted_profiles = set()
         self.profile_list = tk.Listbox(f, height=6, activestyle="none", font=("Segoe UI", 10),
-                                       **{k: v for k, v in FIELD.items() if k != "insertbackground"})
+                                       **{k: v for k, v in theme.field_options().items() if k != "insertbackground"})
         self.profile_list.grid(row=6, column=0, columnspan=2, sticky="we")
         self._fill_profiles()
         ttk.Button(f, text="Xóa game đã chọn", command=self._delete_profile
@@ -429,12 +433,12 @@ class SettingsWindow:
             ttk.Button(box, text="Xóa", width=5, command=lambda v=var: v.set("")).pack(side="left")
             self._row(f, r, label, box)
         ttk.Label(f, text="Bấm “Đổi” rồi nhấn tổ hợp phím mới, Esc để hủy.",
-                  foreground=HINT).grid(row=len(HOTKEY_NAMES), column=1, sticky="w", pady=(8, 0))
+                  foreground=theme.palette()["hint"]).grid(row=len(HOTKEY_NAMES), column=1, sticky="w", pady=(8, 0))
 
     # --- hanh dong ---
     def _color_button(self, parent, var):
         btn = tk.Button(parent, width=10, relief="flat", bd=0, highlightthickness=1,
-                        highlightbackground="#3c3c3c", bg=var.get(), activebackground=var.get(),
+                        highlightbackground=theme.palette()["border"], bg=var.get(), activebackground=var.get(),
                         cursor="hand2")
 
         def pick():
@@ -509,6 +513,7 @@ class SettingsWindow:
         o["opacity"] = max(0.2, min(1.0, 1 - round(float(self.transparency.get())) / 100))
         o["show_original"] = bool(self.show_original.get())
         c["hotkeys"] = {k: v.get() for k, v in self.hk_vars.items()}
+        c["ui_theme"] = self.ui_theme.get()
         c["remember_games"] = bool(self.remember_games.get())
         c["auto_start_games"] = bool(self.auto_start_games.get())
         c["pause_when_unfocused"] = bool(self.pause_unfocused.get())

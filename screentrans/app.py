@@ -6,7 +6,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox
 
-from . import config
+from . import config, theme
 from .overlay import Overlay
 from .selector import RegionSelector
 from .settings import SettingsWindow
@@ -27,15 +27,12 @@ class App:
         self.root = tk.Tk()
         self.root.withdraw()
         self.root.title("Screen Translator")
-        try:                       # giao dien Fluent kieu Windows 11, che do toi
-            import sv_ttk
-            sv_ttk.set_theme("dark")
-        except Exception:
-            log.info("Khong co sv_ttk, dung giao dien mac dinh")
+        theme.apply(self.root, self.cfg.get("ui_theme", "light"))
 
         self.selecting = False
         self.region = None
         self.settings = None
+        self.user_hidden = False           # nguoi dung tu an khung -> khong tu hien lai
         # Game dang gan voi vung dich (de nho vung va bam theo cua so game)
         self.game_hwnd = self.game_exe = self.game_origin = None
         self.game_suspended = False
@@ -104,12 +101,13 @@ class App:
         self.selecting = False
         if region is None:
             if self.region:
-                self.overlay.show()
+                self._show_overlay()
             return
         self.region = region
         self.overlay.place_for_region(region)
         self._remember_game(region)
         self.overlay.set_status(self._running_status())
+        self.user_hidden = False
         self.overlay.show()
         self.worker.set_region(region)
 
@@ -165,6 +163,7 @@ class App:
         else:
             self.overlay.place_for_region(region)
         self.overlay.set_status(self._running_status() + " (vùng đã lưu)")
+        self.user_hidden = False
         self.overlay.show()
         self.worker.set_region(region)
         log.info("Tu nap vung da luu cho %s", exe)
@@ -216,7 +215,7 @@ class App:
                 elif not reason and self.game_suspended:        # quay lai game
                     self.game_suspended = False
                     self.worker.set_auto(self._was_auto)
-                    self.overlay.show()
+                    self._show_overlay()
                     self.overlay.set_status(self._running_status() if self._was_auto else "❚❚ tạm dừng")
                 origin = winutil.client_origin(hwnd)
                 if not self.game_suspended and origin and self.region \
@@ -285,7 +284,7 @@ class App:
         on = not self.worker.auto
         self.worker.set_auto(on)
         self.overlay.set_status(self._running_status() if on else "❚❚ tạm dừng")
-        self.overlay.show()
+        self._show_overlay()
 
     def cmd_translate_once(self):
         if not self.region:
@@ -295,11 +294,25 @@ class App:
         self.overlay.set_status("↻ đang dịch lại…")
         self.worker.translate_once()
 
+    def _show_overlay(self):
+        """Hien khung dich, tru khi nguoi dung da tu an."""
+        if not self.user_hidden:
+            self.overlay.show()
+
     def cmd_toggle_overlay(self):
-        self.overlay.toggle()
+        if self.overlay.visible:
+            self.cmd_hide_overlay()
+        else:
+            self.user_hidden = False
+            self.overlay.show()
+
+    def cmd_hide_overlay(self):
+        self.user_hidden = True
+        self.overlay.hide()
 
     def cmd_result(self, original, translated):
-        self.overlay.show_text(original, translated)
+        self.overlay.add_entry(original, translated)
+        self._show_overlay()
         if self.worker.auto:
             self.overlay.set_status(self._running_status())
 
@@ -326,6 +339,8 @@ class App:
         deleted = cfg.pop("_deleted_profiles", None)
         if deleted is not None:   # giu cac game vua luu trong luc cua so cai dat dang mo
             cfg["profiles"] = {k: v for k, v in self.cfg["profiles"].items() if k not in deleted}
+        if cfg.get("ui_theme") != self.cfg.get("ui_theme"):
+            theme.apply(self.root, cfg.get("ui_theme", "light"))
         self.cfg = cfg
         config.save(cfg)
         auto = self.worker.auto
