@@ -2,8 +2,8 @@
 setlocal
 cd /d "%~dp0"
 
-rem Dung chung bo thu vien voi build.bat, chi cai lai khi requirements.txt thay doi.
-set "ENV=%LOCALAPPDATA%\ScreenTranslator\env"
+rem Dung chung .venv voi build.bat, chi cai lai khi requirements.txt thay doi.
+set "ENV=%~dp0.venv"
 set "MARK=%ENV%\installed-run.txt"
 
 if exist "%ENV%\Scripts\python.exe" goto :have_env
