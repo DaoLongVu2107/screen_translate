@@ -4,6 +4,7 @@ Keo bat ky cho nao tren khung de di chuyen."""
 import tkinter as tk
 
 from .winutil import exclude_from_capture, round_corners, set_click_through
+from .i18n import t
 
 MIN_W, MIN_H = 180, 70
 MAX_ENTRIES = 200
@@ -107,23 +108,23 @@ class Overlay:
         self.grip.bind("<ButtonRelease-1>", self._changed)
 
         self.menu = m = tk.Menu(w, tearoff=0)
-        m.add_command(label="Chọn vùng mới", command=lambda: on_menu("select_region"))
-        m.add_command(label="Tạm dừng / tiếp tục", command=lambda: on_menu("toggle_auto"))
-        m.add_command(label="Dịch lại ngay", command=lambda: on_menu("translate_once"))
+        m.add_command(label=t("Chọn vùng mới"), command=lambda: on_menu("select_region"))
+        m.add_command(label=t("Tạm dừng / tiếp tục"), command=lambda: on_menu("toggle_auto"))
+        m.add_command(label=t("Dịch lại ngay"), command=lambda: on_menu("translate_once"))
         m.add_separator()
-        m.add_command(label="Sửa chữ gốc rồi dịch lại…", command=lambda: on_menu("edit_ocr"))
-        m.add_command(label="Copy câu mới nhất", command=lambda: self._copy(self.latest()[1]))
-        m.add_command(label="Copy chữ gốc mới nhất", command=lambda: self._copy(self.latest()[0]))
-        m.add_command(label="Copy toàn bộ lịch sử", command=self._copy_all)
-        m.add_command(label="Hiện / ẩn chữ gốc", command=self._toggle_original)
-        m.add_command(label="Xóa lịch sử", command=self.clear)
+        m.add_command(label=t("Sửa chữ gốc rồi dịch lại…"), command=lambda: on_menu("edit_ocr"))
+        m.add_command(label=t("Copy câu mới nhất"), command=lambda: self._copy(self.latest()[1]))
+        m.add_command(label=t("Copy chữ gốc mới nhất"), command=lambda: self._copy(self.latest()[0]))
+        m.add_command(label=t("Copy toàn bộ lịch sử"), command=self._copy_all)
+        m.add_command(label=t("Hiện / ẩn chữ gốc"), command=self._toggle_original)
+        m.add_command(label=t("Xóa lịch sử"), command=self.clear)
         m.add_separator()
-        m.add_command(label="Chế độ phụ đề / lịch sử", command=lambda: on_menu("toggle_subtitle"))
-        m.add_command(label="Chuột bấm xuyên qua khung", command=lambda: on_menu("toggle_click_through"))
-        m.add_command(label="Quên vùng của app này", command=lambda: on_menu("forget_game"))
-        m.add_command(label="Cài đặt…", command=lambda: on_menu("open_settings"))
-        m.add_command(label="Ẩn khung", command=lambda: on_menu("hide_overlay"))
-        m.add_command(label="Thoát", command=lambda: on_menu("quit"))
+        m.add_command(label=t("Chế độ phụ đề / lịch sử"), command=lambda: on_menu("toggle_subtitle"))
+        m.add_command(label=t("Chuột bấm xuyên qua khung"), command=lambda: on_menu("toggle_click_through"))
+        m.add_command(label=t("Quên vùng của app này"), command=lambda: on_menu("forget_game"))
+        m.add_command(label=t("Cài đặt…"), command=lambda: on_menu("open_settings"))
+        m.add_command(label=t("Ẩn khung"), command=lambda: on_menu("hide_overlay"))
+        m.add_command(label=t("Thoát"), command=lambda: on_menu("quit"))
         for wid in (self.bar, self.status, self.text, self.grip):
             wid.bind("<Button-3>", self._popup)
             wid.bind("<Control-MouseWheel>", self._wheel_opacity)
@@ -186,7 +187,7 @@ class Overlay:
         self.win.attributes("-alpha", self.cfg["opacity"])
         if self.click_through:
             set_click_through(self.win, True)
-        self.set_status(f"độ trong suốt {round((1 - self.cfg['opacity']) * 100)}%")
+        self.set_status(t("độ trong suốt {p}%").format(p=round((1 - self.cfg['opacity']) * 100)))
         self._changed()      # luu lai
         return "break"
 
@@ -290,10 +291,10 @@ class Overlay:
         tk.Label(tip, text=word, font=(family, 11, "bold"), fg=fg, bg=bg, anchor="w",
                  padx=10, pady=(4)).pack(fill="x")
         if isinstance(result, Exception):
-            lines = [("", f"Không tra được: {result}")]
+            lines = [("", t("Không tra được: {e}").format(e=result))]
         else:
             main, senses = result
-            lines = [("", main or "(không có nghĩa)")] + [(pos, ", ".join(terms)) for pos, terms
+            lines = [("", main or t("(không có nghĩa)"))] + [(pos, ", ".join(terms)) for pos, terms
                                                        in senses[:4] if terms]
         for pos, text in lines:
             row = tk.Frame(tip, bg=bg)
@@ -304,7 +305,7 @@ class Overlay:
             tk.Label(row, text=text, font=(family, 10), fg=fg, bg=bg, justify="left",
                      wraplength=320).pack(side="left", anchor="w", padx=(6 if pos else 0, 0))
         if " " not in word:
-            tk.Label(tip, text="Giữ Shift và kéo qua nhiều từ để tra cả cụm", font=(family, 8),
+            tk.Label(tip, text=t("Giữ Shift và kéo qua nhiều từ để tra cả cụm"), font=(family, 8),
                      fg=_blend(fg, bg, 0.55), bg=bg, anchor="w", padx=10).pack(fill="x", pady=(4, 0))
         tk.Frame(tip, bg=bg, height=4).pack()
         tip.update_idletasks()
@@ -427,7 +428,7 @@ class Overlay:
         self.click_through = enabled
         self.cfg["click_through"] = enabled
         set_click_through(self.win, enabled)
-        self.ct_label.configure(text="chuột xuyên qua" if enabled else "")
+        self.ct_label.configure(text=t("chuột xuyên qua") if enabled else "")
 
     def show(self):
         self.win.deiconify()

@@ -2,6 +2,7 @@
 keo tay nam de doi ca vung. Enter hoac phim tat de luu, Esc de huy."""
 import tkinter as tk
 
+from .i18n import t
 from .winutil import exclude_from_capture
 
 T = 6           # do day vien
@@ -23,7 +24,8 @@ class RegionEditor:
             self.parts[part] = self._window(root, part, bg=COLOR)
         # Tay nam: keo de doi ca vung, kem huong dan
         self.handle = self._window(root, "move", bg="#1f1f1f")
-        tip = f"⠿  Kéo để dời vùng · kéo viền để chỉnh · Enter{' / ' + hotkey if hotkey else ''} lưu · Esc hủy"
+        tip = "⠿  " + t("Kéo để dời vùng · kéo viền để chỉnh · {keys} lưu · Esc hủy").format(
+            keys="Enter" + (" / " + hotkey if hotkey else ""))
         self.label = tk.Label(self.handle, text=tip, fg="white", bg="#1f1f1f",
                               font=("Segoe UI", 9), padx=8, pady=3, cursor=CURSORS["move"])
         self.label.pack()

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import sys
+from .i18n import t
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def validate(cfg: dict, deep: bool = True, hotkey_errors=None):
 
     # Ngon ngu
     if cfg.get("source_lang") == cfg.get("target_lang"):
-        add("Ngôn ngữ", "Ngôn ngữ gốc trùng với ngôn ngữ dịch sang.")
+        add(t("Ngôn ngữ"), t("Ngôn ngữ gốc trùng với ngôn ngữ dịch sang."))
     lang_name, win_lang, tess_lang, _ = lang_info(cfg.get("source_lang", "en"))
 
     # May dich
@@ -42,30 +43,30 @@ def validate(cfg: dict, deep: bool = True, hotkey_errors=None):
         elif eng in cfg.get("ai", {}) and not cfg["ai"][eng].get("api_key"):
             missing.append(eng)
     for eng in missing:
-        add("Dịch", f"{ENGINE_NAMES.get(eng, eng)} chưa có API key nên sẽ bị bỏ qua.")
+        add(t("Dịch"), t("{engine} chưa có API key nên sẽ bị bỏ qua.").format(engine=t(ENGINE_NAMES.get(eng, eng))))
     if chain and len(missing) == len(chain):
-        add("Dịch", "Không còn máy dịch nào dùng được. Nhập API key hoặc thêm Google Dịch vào thứ tự.")
+        add(t("Dịch"), t("Không còn máy dịch nào dùng được. Nhập API key hoặc thêm Google Dịch vào thứ tự."))
 
     # Nhan dang chu
     if cfg.get("ocr_engine") == "tesseract":
         cmd = cfg.get("tesseract_cmd") or ""
         if cmd and not os.path.isfile(cmd):
-            add("Nhận dạng", f"Không tìm thấy tesseract.exe ở “{cmd}”.")
+            add(t("Nhận dạng"), t("Không tìm thấy tesseract.exe ở “{cmd}”.").format(cmd=cmd))
         elif deep:
             try:
                 import pytesseract
                 if cmd:
                     pytesseract.pytesseract.tesseract_cmd = cmd
                 if tess_lang not in pytesseract.get_languages(config=""):
-                    add("Nhận dạng", f"Tesseract chưa có dữ liệu cho {lang_name} ({tess_lang}).")
+                    add(t("Nhận dạng"), t("Tesseract chưa có dữ liệu cho {lang} ({code}).").format(lang=t(lang_name), code=tess_lang))
             except Exception as e:
-                add("Nhận dạng", f"Không chạy được Tesseract: {e}")
+                add(t("Nhận dạng"), t("Không chạy được Tesseract: {e}").format(e=e))
     elif deep and sys.platform == "win32":
         try:
             available = windows_ocr_languages()
             if not _has_lang(available, win_lang):
-                add("Nhận dạng", f"Windows chưa cài gói nhận dạng chữ cho {lang_name}. Vào Settings → "
-                                     f"Time & language → Language & region → Add a language để thêm.")
+                add(t("Nhận dạng"), t("Windows chưa cài gói nhận dạng chữ cho {lang}. Vào Settings → Time & language → "
+                                     "Language & region → Add a language để thêm.").format(lang=t(lang_name)))
         except Exception as e:
             log.info("Khong kiem tra duoc ngon ngu Windows OCR: %s", e)
 
@@ -73,17 +74,17 @@ def validate(cfg: dict, deep: bool = True, hotkey_errors=None):
     used = [h for h in cfg.get("hotkeys", {}).values() if h]
     dup = sorted({h for h in used if used.count(h) > 1})
     if dup:
-        add("Phím tắt", "Phím tắt bị trùng: " + ", ".join(dup) + ".")
+        add(t("Phím tắt"), t("Phím tắt bị trùng: ") + ", ".join(dup) + ".")
     for combo in hotkey_errors or []:
-        add("Phím tắt", f"Không đăng ký được phím {combo}, có thể app khác đang dùng.")
+        add(t("Phím tắt"), t("Không đăng ký được phím {combo}, có thể app khác đang dùng.").format(combo=combo))
 
     # Loc anh
     flt = cfg.get("ocr_filter") or {}
     if flt.get("text_color_on") and not re.fullmatch(r"#[0-9A-Fa-f]{6}", flt.get("text_color", "")):
-        add("Lọc ảnh", "Màu chữ để lọc không hợp lệ.")
+        add(t("Lọc ảnh"), t("Màu chữ để lọc không hợp lệ."))
 
     # He thong
     proxy = (cfg.get("proxy") or "").strip()
     if proxy and not re.match(r"^(https?|socks5h?)://[^\s/:]+(:\d+)?/?$", proxy):
-        add("Hệ thống", "Proxy phải có dạng http://máy:cổng, ví dụ http://127.0.0.1:8080.")
+        add(t("Hệ thống"), t("Proxy phải có dạng http://máy:cổng, ví dụ http://127.0.0.1:8080."))
     return problems

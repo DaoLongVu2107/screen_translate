@@ -4,6 +4,7 @@ import re
 from collections import OrderedDict, deque
 
 from .ai_translator import PROVIDERS as AI_PROVIDERS, AiTranslator
+from .i18n import t
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class GoogleCloudTranslator:
 
     def __init__(self, api_key: str, source: str, target: str):
         if not api_key:
-            raise ValueError("Chưa nhập API key cho Google Cloud (Cài đặt → Dịch).")
+            raise ValueError(t("Chưa nhập API key cho Google Cloud (Cài đặt → Dịch)."))
         import requests
         self._session = requests.Session()
         self.key, self.source, self.target = api_key, source, target
@@ -102,14 +103,14 @@ class GoogleFreeTranslator:
             r = self._session.post(f"{url}&sl={self.source}&tl={self.target}", data={"q": text},
                                    timeout=5, allow_redirects=False)
         except self._requests.RequestException as e:
-            return None, f"không kết nối được: {type(e).__name__}"
+            return None, t("không kết nối được: {name}").format(name=type(e).__name__)
         if r.status_code != 200:     # 429, hoac 302 sang trang xac minh "sorry"
             return None, f"HTTP {r.status_code}"
         try:
             result = self._parse(r.json())
         except ValueError:
-            return None, "phản hồi không hợp lệ"
-        return (result, None) if result else (None, "phản hồi rỗng")
+            return None, t("phản hồi không hợp lệ")
+        return (result, None) if result else (None, t("phản hồi rỗng"))
 
     def translate(self, text: str) -> str:
         import time
@@ -127,8 +128,8 @@ class GoogleFreeTranslator:
                 time.sleep(0.7)
         detail = ", ".join(dict.fromkeys(errors))
         if any(e.startswith("HTTP") for e in errors):
-            raise ApiError(429, f"Google tạm chặn ({detail})")
-        raise ApiError(0, f"Không kết nối được tới Google Dịch ({detail}). Kiểm tra mạng.")
+            raise ApiError(429, t("Google tạm chặn ({detail})").format(detail=detail))
+        raise ApiError(0, t("Không kết nối được tới Google Dịch ({detail}). Kiểm tra mạng.").format(detail=detail))
 
 
 ENGINE_NAMES = {"google": "Google Dịch", "google_cloud": "Google Cloud", "deepl": "DeepL",
@@ -155,7 +156,7 @@ def make_engine(engine: str, cfg: dict):
         return GoogleCloudTranslator(cfg.get("google_cloud_api_key", ""), src, dst)
     if engine == "deepl":
         if not cfg.get("deepl_api_key"):
-            raise ValueError("Chưa nhập DeepL API key.")
+            raise ValueError(t("Chưa nhập DeepL API key."))
         from deep_translator import DeeplTranslator
         return DeeplTranslator(api_key=cfg["deepl_api_key"], source=src.split("-")[0],
                                target=dst.split("-")[0], use_free_api=True)
@@ -190,7 +191,7 @@ class Translator:
                 log.warning("Bo qua may dich %s: %s", eng, e)
                 skipped.append(f"{ENGINE_NAMES.get(eng, eng)}: {e}")
         if not self._chain:
-            raise ValueError("Không có máy dịch nào dùng được. " + "; ".join(skipped))
+            raise ValueError(t("Không có máy dịch nào dùng được. ") + "; ".join(skipped))
         self._impl = self._chain[0]["impl"]
         self.last_engine = None
         self.fallback_note = ""
@@ -228,9 +229,10 @@ class Translator:
                     result = self._impl.translate(text[:4900]) or ""
                 self.last_engine = entry["id"]
                 if entry is not self._chain[0]:
-                    failed = ", ".join(ENGINE_NAMES.get(e, e) for e, _ in errors) or \
-                        ENGINE_NAMES.get(self._chain[0]["id"], "")
-                    self.fallback_note = f"dịch bằng {ENGINE_NAMES.get(entry['id'])} ({failed} đang lỗi)"
+                    failed = ", ".join(t(ENGINE_NAMES.get(e, e)) for e, _ in errors) or \
+                        t(ENGINE_NAMES.get(self._chain[0]["id"], ""))
+                    self.fallback_note = t("dịch bằng {engine} ({failed} đang lỗi)").format(
+                        engine=t(ENGINE_NAMES.get(entry["id"], "")), failed=failed)
                 break
             except Exception as e:
                 errors.append((entry["id"], e))
@@ -242,7 +244,7 @@ class Translator:
                 raise ApiError(429, "; ".join(f"{ENGINE_NAMES.get(n, n)}: {e}" for n, e in errors))
             if len(errors) == 1:
                 raise errors[0][1]
-            raise RuntimeError("Mọi máy dịch đều lỗi: " +
+            raise RuntimeError(t("Mọi máy dịch đều lỗi: ") +
                                "; ".join(f"{ENGINE_NAMES.get(n, n)}: {e}" for n, e in errors))
         self._history.append(text)
         self._cache[text] = result

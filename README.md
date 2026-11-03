@@ -18,7 +18,7 @@ Go to **[Releases](https://github.com/DaoLongVu2107/screen_translate/releases/la
 
 Requirements: Windows 10 or 11.
 
-> The app's interface is currently in Vietnamese. It can translate from English, Japanese, Chinese, Korean, Russian, French, German, Spanish and more into Vietnamese, English or any other listed language.
+> The interface is available in **English** and **Vietnamese** and follows your Windows language by default (change it in Settings → Appearance → Interface language). It translates between English, Japanese, Chinese, Korean, Russian, French, German, Spanish, Portuguese, Italian, Thai and Vietnamese.
 
 ## Features
 
@@ -47,7 +47,7 @@ Requirements: Windows 10 or 11.
 - Show and adjust the area border directly without selecting again
 - Only translates while the app is in front; pauses when minimized or when you switch windows
 - Checks your settings and points out problems (missing API keys, missing OCR language packs, duplicate hotkeys...)
-- Start with Windows, proxy support, update notifications
+- English and Vietnamese interface, start with Windows, proxy support, update notifications
 
 ## Hotkeys
 
@@ -75,7 +75,7 @@ All hotkeys can be changed in Settings.
    - New lines appear at the bottom and older ones move up; scroll to read them again.
    - Hold `Ctrl` and scroll on the box to change its transparency.
    - Right-click the box to copy the translation, show the original text, fix misread text, pick a new area...
-4. Press `Alt + S` (or right-click the tray icon → **Mở cài đặt**) to change languages, engines, appearance, hotkeys and per-app behavior.
+4. Press `Alt + S` (or right-click the tray icon → **Open settings**) to change languages, engines, appearance, hotkeys and per-app behavior.
 
 ![Settings window](docs/images/settings.png)
 
@@ -83,19 +83,19 @@ All hotkeys can be changed in Settings.
 
 AI translations read much more naturally, follow the flow of the conversation and keep names consistent.
 
-1. Open Settings → **Dịch** (Translation) tab and pick an AI engine.
-2. Click **Lấy key** (Get key) to open the provider's API key page, then paste the key into **API key**.
-3. Choose a model (click **Tải danh sách** to load the latest models), then click **Thử dịch** (Test) to check it works.
-4. Optionally write notes for the AI, for example: *"Translate Doctor as Tiến sĩ; keep character names unchanged"*.
-5. Add it to **Thứ tự máy dịch** (engine order) together with other engines as backups.
+1. Open Settings → **Translation** tab and pick an AI engine.
+2. Click **Get key** to open the provider's API key page, then paste the key into **API key**.
+3. Choose a model (click **Load list** to fetch the latest models), then click **Test** to check it works.
+4. Optionally write notes for the AI, for example: *"Keep character names unchanged; casual tone"*.
+5. Add it to the **Engine order** together with other engines as backups.
 
 AI usage is billed by the provider based on the amount of text. The app only calls the AI when the text on screen changes.
 
 ## Tips
 
 - **Reading Japanese, Chinese, Korean...**: Windows needs the OCR language pack. Go to *Settings → Time & language → Language & region → Add a language* and add the language you want to read.
-- **Busy or animated backgrounds**: open the **Lọc ảnh** (Image filter) tab, take a preview and click on the text to keep only that color.
-- **Rate-limited by Google**: add another engine to the engine order, or increase the send interval in the **Dịch** tab.
+- **Busy or animated backgrounds**: open the **Image filter** tab, capture a preview and click on the text to keep only that color.
+- **Rate-limited by Google**: add another engine to the engine order, or increase the send interval in the **Translation** tab.
 - **Hotkeys don't work inside a game**: right-click `ScreenTranslator.exe` → *Run as administrator*.
 - **Fullscreen games**: switch the game to *Borderless* or *Windowed* mode so the translation box can stay on top.
 - **Select only the text area**: translation is faster and more accurate.

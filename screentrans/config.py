@@ -103,6 +103,7 @@ DEFAULTS = {
         "subtitle_geom": None,        # vi tri khung phu de nguoi dung da keo (toa do man hinh)
     },
     "ui_theme": "light",              # giao dien cua so cai dat: light | dark
+    "ui_lang": "auto",                # ngon ngu giao dien: auto (theo Windows) | vi | en
     "proxy": "",                      # vd. http://127.0.0.1:8080, de trong = khong dung
     "check_updates": True,            # tu kiem tra ban moi khi mo app (toi da 1 lan/ngay)
     "last_update_check": "",
@@ -141,8 +142,12 @@ def _merge(base: dict, override: dict) -> dict:
 
 def load() -> dict:
     if not os.path.exists(CONFIG_PATH):
-        save(DEFAULTS)
-        return copy.deepcopy(DEFAULTS)
+        cfg = copy.deepcopy(DEFAULTS)
+        from .i18n import system_lang
+        if system_lang() == "en":          # Windows tieng Anh: dich sang tieng Anh, tu tieng Nhat
+            cfg["target_lang"], cfg["source_lang"] = "en", "ja"
+        save(cfg)
+        return cfg
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
             user = json.load(f)

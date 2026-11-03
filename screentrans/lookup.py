@@ -1,6 +1,8 @@
 """Tra tung tu bang tu dien cua Google Dich mien phi (nghia chinh + nghia theo loai tu)."""
 from collections import OrderedDict
 
+from .i18n import t
+
 URL = "https://translate.googleapis.com/translate_a/single"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -44,7 +46,7 @@ class WordLookup:
                   ("oe", "UTF-8"), ("q", word)]
         r = self._session.get(URL, params=params, timeout=5, allow_redirects=False)
         if r.status_code != 200:
-            raise RuntimeError(f"Google không trả lời (HTTP {r.status_code})")
+            raise RuntimeError(t("Google không trả lời (HTTP {code})").format(code=r.status_code))
         result = parse(r.json())
         self._cache[key] = result
         if len(self._cache) > 1000:

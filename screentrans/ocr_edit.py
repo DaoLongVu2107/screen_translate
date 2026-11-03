@@ -6,6 +6,7 @@ from tkinter import ttk
 
 from . import theme
 from .winutil import dark_title_bar
+from .i18n import t
 
 
 def word_fixes(old: str, new: str):
@@ -28,25 +29,25 @@ class OcrEditDialog:
         self.original = text
         p = theme.palette()
         self.win = w = tk.Toplevel(root)
-        w.title("Sửa chữ gốc rồi dịch lại")
+        w.title(t("Sửa chữ gốc rồi dịch lại"))
         w.attributes("-topmost", True)
         w.configure(bg=p["bg"])
         if theme.current == "dark":
             w.after(30, lambda: dark_title_bar(w))
         body = ttk.Frame(w, padding=16)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text="Sửa những chỗ OCR đọc nhầm rồi bấm Dịch lại:").pack(anchor="w")
+        ttk.Label(body, text=t("Sửa những chỗ OCR đọc nhầm rồi bấm Dịch lại:")).pack(anchor="w")
         self.text = tk.Text(body, width=64, height=5, wrap="word", font=("Segoe UI", 11),
                             padx=8, pady=6, **theme.field_options())
         self.text.pack(fill="both", expand=True, pady=(6, 8))
         self.text.insert("1.0", text)
         self.save_subs = tk.BooleanVar(value=True)
-        ttk.Checkbutton(body, text="Lưu các chỗ sửa vào bảng thay thế OCR để lần sau tự sửa",
+        ttk.Checkbutton(body, text=t("Lưu các chỗ sửa vào bảng thay thế OCR để lần sau tự sửa"),
                         variable=self.save_subs).pack(anchor="w")
         bar = ttk.Frame(body)
         bar.pack(fill="x", pady=(12, 0))
-        ttk.Button(bar, text="Hủy", command=w.destroy).pack(side="right")
-        ttk.Button(bar, text="Dịch lại", style="Accent.TButton", command=self.submit).pack(side="right", padx=8)
+        ttk.Button(bar, text=t("Hủy"), command=w.destroy).pack(side="right")
+        ttk.Button(bar, text=t("Dịch lại"), style="Accent.TButton", command=self.submit).pack(side="right", padx=8)
         w.bind("<Control-Return>", lambda e: self.submit())
         w.bind("<Escape>", lambda e: w.destroy())
         self.text.focus_set()

@@ -38,7 +38,7 @@ Yêu cầu: Windows 10 hoặc 11.
 - Nhớ vùng dịch theo từng app, kéo cửa sổ đi đâu vùng dịch theo đó, đổi kích thước cửa sổ thì vùng dịch co giãn theo
 - Chỉ dịch khi app đang ở phía trước, thu nhỏ hoặc chuyển cửa sổ thì tự dừng
 - Giao diện Sáng / Tối, tùy chỉnh phông chữ, màu, độ trong suốt
-- Khởi động cùng Windows, proxy, tự báo khi có bản mới
+- Giao diện tiếng Việt và tiếng Anh (mặc định theo ngôn ngữ của Windows), khởi động cùng Windows, proxy, tự báo khi có bản mới
 
 ## Phím tắt
 

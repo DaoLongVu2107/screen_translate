@@ -1,6 +1,7 @@
 """Dich bang AI (Claude, ChatGPT, Gemini, Grok) voi API key cua nguoi dung."""
 import logging
 from collections import deque
+from .i18n import t
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class AiTranslator:
     def __init__(self, provider: str, api_key: str, model: str, src_name: str, dst_name: str,
                  notes: str = "", context_lines: int = 3):
         if not api_key:
-            raise ValueError(f"Chưa nhập API key cho {PROVIDERS[provider][0]} (Cài đặt → Dịch).")
+            raise ValueError(t("Chưa nhập API key cho {name} (Cài đặt → Dịch).").format(name=PROVIDERS[provider][0]))
         self.provider, self.model = provider, model or PROVIDERS[provider][1][0]
         self.system = SYSTEM_PROMPT.format(src=src_name, dst=dst_name)
         if notes.strip():
@@ -47,7 +48,7 @@ class AiTranslator:
             from google import genai
             self._client = genai.Client(api_key=api_key)
         else:
-            raise ValueError(f"Không biết nhà cung cấp AI: {provider}")
+            raise ValueError(t("Không biết nhà cung cấp AI: {name}").format(name=provider))
 
     def _user_message(self, text: str) -> str:
         parts = []
@@ -83,7 +84,7 @@ class AiTranslator:
                 return self._call_claude(msg)
             raise
         if resp.stop_reason == "refusal":
-            return "[AI từ chối dịch đoạn này]"
+            return t("[AI từ chối dịch đoạn này]")
         return "".join(b.text for b in resp.content if b.type == "text")
 
     def _call_openai(self, msg: str) -> str:

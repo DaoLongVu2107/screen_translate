@@ -7,6 +7,7 @@ import mss
 from PIL import Image, ImageChops
 
 from . import imgfilter, ocr as ocr_mod
+from .i18n import t
 from .textproc import prepare
 from .translator import Translator
 
@@ -118,7 +119,7 @@ class TranslateWorker(threading.Thread):
             self._run()
         except Exception as e:           # khong de luong dich chet im lang
             log.exception("Luong dich bi loi va da dung")
-            self.on_error(f"Luong dich bi loi: {e}")
+            self.on_error(t("Luồng dịch bị lỗi: {e}").format(e=e))
 
     def _run(self):
         try:
@@ -126,7 +127,7 @@ class TranslateWorker(threading.Thread):
             translator = Translator(self.cfg)
         except Exception as e:
             log.exception("Khoi tao OCR/dich that bai")
-            self.on_error(f"Khong khoi tao duoc OCR/may dich:\n{e}")
+            self.on_error(t("Không khởi tạo được OCR hoặc máy dịch:") + f"\n{e}")
             return
         interval = max(0.1, self.cfg["interval_ms"] / 1000)
         log.info("Bat dau dich: OCR=%s, may dich=%s, chu ky=%sms",
@@ -153,7 +154,7 @@ class TranslateWorker(threading.Thread):
                         self._cooldown_until = time.monotonic() + self._backoff
                         self._last_text = self._last_sig = None
                         log.warning("May dich bao goi qua nhieu, nghi %ss", self._backoff)
-                        self.on_status(f"⏳ máy dịch tạm chặn, thử lại sau {int(self._backoff)}s")
+                        self.on_status("⏳ " + t("máy dịch tạm chặn, thử lại sau {n}s").format(n=int(self._backoff)))
                     else:
                         log.exception("Loi khi dich")
                         self.on_error(str(e))

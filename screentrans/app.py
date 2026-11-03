@@ -18,6 +18,7 @@ from .settings import SettingsWindow
 from . import winutil
 from .winutil import enable_dpi_awareness
 from .worker import TranslateWorker
+from .i18n import t
 
 log = logging.getLogger("screentrans")
 
@@ -28,6 +29,8 @@ class App:
         self.cfg = config.load()
         self.q: "queue.Queue[tuple]" = queue.Queue()
 
+        from . import i18n
+        i18n.set_lang(self.cfg.get("ui_lang", "auto"))
         enable_dpi_awareness()
         self.root = tk.Tk()
         self.root.withdraw()
@@ -100,11 +103,11 @@ class App:
         hk = self.cfg["hotkeys"]
         messagebox.showinfo(
             "Screen Translator",
-            f"App đang chạy ở khay hệ thống (góc phải thanh taskbar).\n\n"
-            f"{hk['select_region']}: chọn vùng cần dịch\n"
-            f"{hk['toggle_auto']}: tạm dừng / tiếp tục\n"
-            f"{hk['quick_translate']}: dịch nhanh một lần\n"
-            f"{hk['open_settings']}: mở cài đặt (ngôn ngữ, phím tắt, giao diện)")
+            t("App đang chạy ở khay hệ thống (góc phải thanh taskbar).") + "\n\n"
+            + f"{hk['select_region']}: " + t("chọn vùng cần dịch") + "\n"
+            + f"{hk['toggle_auto']}: " + t("tạm dừng / tiếp tục") + "\n"
+            + f"{hk['quick_translate']}: " + t("dịch nhanh một lần") + "\n"
+            + f"{hk['open_settings']}: " + t("mở cài đặt (ngôn ngữ, phím tắt, giao diện)"))
 
     # --- lenh ---
     def cmd_select_region(self):
@@ -130,7 +133,7 @@ class App:
         self.worker.set_region(region)
 
     def _running_status(self):
-        return "● đang dịch" + (f" · {self.game_exe}" if self.game_exe else "")
+        return t("● đang dịch") + (f" · {self.game_exe}" if self.game_exe else "")
 
     # --- nho vung theo tung game ---
     def _remember_game(self, region):
@@ -199,7 +202,7 @@ class App:
             self.overlay.set_geometry(ox + x, oy + y, ow, oh)
         else:
             self.overlay.place_for_region(region)
-        self.overlay.set_status(self._running_status() + " (vùng đã lưu)")
+        self.overlay.set_status(self._running_status() + t(" (vùng đã lưu)"))
         self.user_hidden = False
         self.overlay.show()
         self.worker.set_region(region)
@@ -241,7 +244,7 @@ class App:
                 log.info("%s da dong", self.game_exe)
                 self.worker.set_auto(False)
                 self.overlay.hide()
-                self.overlay.set_status("app đã đóng")
+                self.overlay.set_status(t("app đã đóng"))
                 self.region = None
                 self._detach_game()
             else:
@@ -258,7 +261,7 @@ class App:
                     self.worker.set_auto(self._was_auto)
                     self.auto_hidden = False
                     self._show_overlay()
-                    self.overlay.set_status(self._running_status() if self._was_auto else "❚❚ tạm dừng")
+                    self.overlay.set_status(self._running_status() if self._was_auto else t("❚❚ tạm dừng"))
                 origin = winutil.client_origin(hwnd)
                 size = winutil.client_size(hwnd)
                 if not self.game_suspended and origin and self.region and size and size[0] > 0 \
@@ -302,7 +305,7 @@ class App:
     def _suspend_reason(self, hwnd):
         """Ly do tam dung dich (None = cu dich binh thuong)."""
         if winutil.window_minimized(hwnd):
-            return "app bị thu nhỏ"
+            return t("app bị thu nhỏ")
         if not self.cfg.get("pause_when_unfocused", True):
             return None
         fg = winutil.foreground_window()
@@ -312,18 +315,18 @@ class App:
         # Cua so cua chinh app (khung dich, cai dat) hoac hop thoai phu cua game -> van dich
         if pid == os.getpid() or pid == winutil.window_pid(hwnd):
             return None
-        return "app không ở phía trước"
+        return t("app không ở phía trước")
 
     def cmd_forget_game(self):
         if not self.game_exe:
-            self.overlay.set_status("vùng hiện tại không gắn với app nào")
+            self.overlay.set_status(t("vùng hiện tại không gắn với app nào"))
             return
         exe = self.game_exe
         self.cfg["profiles"].pop(exe, None)
         config.save(self.cfg)
         self._dismissed.add(self.game_hwnd)
         self._detach_game()
-        self.overlay.set_status(f"đã quên vùng của {exe}")
+        self.overlay.set_status(t("đã quên vùng của {exe}").format(exe=exe))
 
     def cmd_toggle_auto(self):
         if not self.region:
@@ -333,7 +336,7 @@ class App:
             return
         on = not self.worker.auto
         self.worker.set_auto(on)
-        self.overlay.set_status(self._running_status() if on else "❚❚ tạm dừng")
+        self.overlay.set_status(self._running_status() if on else t("❚❚ tạm dừng"))
         self._show_overlay()
 
     def cmd_translate_once(self):
@@ -341,7 +344,7 @@ class App:
             return self.cmd_select_region()
         if self.game_suspended:          # khong chup khi game dang bi che / thu nho
             return
-        self.overlay.set_status("↻ đang dịch lại…")
+        self.overlay.set_status(t("↻ đang dịch lại…"))
         self.worker.translate_once()
 
     # --- kiem tra luc khoi dong: cai dat sai, ban moi ---
@@ -365,8 +368,8 @@ class App:
             try:
                 problems = validate(cfg, deep=True, hotkey_errors=hk)
                 if problems:
-                    self.post("call", self._notify, "Cài đặt chưa đúng",
-                              "\n".join(m for _, m in problems[:3]) + "\nMở Cài đặt để xem chi tiết.")
+                    self.post("call", self._notify, t("Cài đặt chưa đúng"),
+                              "\n".join(m for _, m in problems[:3]) + t("\nMở Cài đặt để xem chi tiết."))
             except Exception:
                 log.exception("Kiem tra cai dat that bai")
             today = datetime.date.today().isoformat()
@@ -383,13 +386,13 @@ class App:
 
     def _offer_update(self, tag, url):
         import webbrowser
-        if messagebox.askyesno("Screen Translator", f"Có bản mới {tag}. Mở trang tải về?"):
+        if messagebox.askyesno("Screen Translator", t("Có bản mới {tag}. Mở trang tải về?").format(tag=tag)):
             webbrowser.open(url)
 
     # --- sua chu OCR roi dich lai ---
     def cmd_edit_ocr(self):
         if not self.overlay.entries:
-            self.overlay.set_status("chưa có câu nào để sửa")
+            self.overlay.set_status(t("chưa có câu nào để sửa"))
             return
         original, _ = self.overlay.entries[-1]
         OcrEditDialog(self.root, original, lambda text, fixes: self._retranslate(
@@ -417,7 +420,7 @@ class App:
                 original, translated = Translator(cfg).translate_dialogue(text)
                 self.post("call", show, original, translated)
             except Exception as e:
-                self.post("error", f"Dịch lại thất bại: {e}")
+                self.post("error", t("Dịch lại thất bại: {e}").format(e=e))
         threading.Thread(target=work, daemon=True).start()
 
     # --- ho tro cho khung xem truoc trong cai dat ---
@@ -437,7 +440,7 @@ class App:
             try:
                 text = ocr_mod.create(cfg).recognize(img).strip()
             except Exception as e:
-                text = f"Lỗi OCR: {e}"
+                text = t("Lỗi OCR: {e}").format(e=e)
             self.post("call", callback, text)
         threading.Thread(target=work, daemon=True).start()
 
@@ -492,7 +495,7 @@ class App:
             prof["region"] = list(rel)
             prof["client"] = list(self.game_size) if self.game_size else None
             config.save(self.cfg)
-        self.overlay.set_status("vùng dịch đã cập nhật")
+        self.overlay.set_status(t("vùng dịch đã cập nhật"))
         self.worker.translate_once()
 
     # --- dich nhanh mot lan ---
@@ -625,8 +628,8 @@ class App:
         on = not self.overlay.click_through
         self.overlay.set_click_through(on)
         config.save(self.cfg)
-        hk = self.cfg["hotkeys"].get("toggle_click_through") or "menu ở khay hệ thống"
-        self.overlay.set_status(f"chuột xuyên qua: bật, tắt bằng {hk}" if on else "chuột xuyên qua: tắt")
+        hk = self.cfg["hotkeys"].get("toggle_click_through") or t("menu ở khay hệ thống")
+        self.overlay.set_status(t("chuột xuyên qua: bật, tắt bằng {hk}").format(hk=hk) if on else t("chuột xuyên qua: tắt"))
         self._show_overlay()
 
     def cmd_hide_overlay(self):
@@ -646,7 +649,7 @@ class App:
     def cmd_error(self, msg):
         log.error(msg)
         self.overlay.set_status("⚠ " + msg.splitlines()[0][:80])
-        if "khoi tao" in msg.lower() or "khởi tạo" in msg.lower():
+        if msg.startswith(t("Không khởi tạo được OCR hoặc máy dịch:")):
             messagebox.showerror("Screen Translator", msg)
 
     def cmd_open_settings(self):
@@ -667,6 +670,8 @@ class App:
         if deleted is not None:   # giu cac game vua luu trong luc cua so cai dat dang mo
             cfg["profiles"] = {k: v for k, v in self.cfg["profiles"].items() if k not in deleted}
         self._lookup = None              # ngon ngu co the da doi
+        from . import i18n
+        i18n.set_lang(cfg.get("ui_lang", "auto"))
         from . import sysutil
         sysutil.apply_proxy(cfg.get("proxy", ""))
         if "autostart" in cfg and cfg["autostart"] != sysutil.is_autostart():
@@ -696,7 +701,7 @@ class App:
             self.overlay.set_geometry(*geom)
             self.worker.region = self.region
             self.worker.set_auto(auto)
-            self.overlay.set_status(self._running_status() if auto else "❚❚ tạm dừng")
+            self.overlay.set_status(self._running_status() if auto else t("❚❚ tạm dừng"))
             if was_visible:
                 self.overlay.show()
             self.worker.translate_once()
@@ -746,7 +751,7 @@ class App:
         names = config.HOTKEY_NAMES
 
         def item(cmd, default=False):
-            label = names[cmd] + (f"   ({hk[cmd]})" if hk.get(cmd) else "")
+            label = t(names[cmd]) + (f"   ({hk[cmd]})" if hk.get(cmd) else "")
             return pystray.MenuItem(label, lambda: self.post(cmd), default=default)
         return pystray.Menu(
             item("select_region", default=True),
@@ -757,7 +762,7 @@ class App:
             item("toggle_click_through"),
             item("edit_region"),
             item("toggle_subtitle"),
-            pystray.MenuItem("Quên vùng của app hiện tại", lambda: self.post("forget_game")),
+            pystray.MenuItem(t("Quên vùng của app hiện tại"), lambda: self.post("forget_game")),
             pystray.Menu.SEPARATOR,
             item("open_settings"),
             item("quit"),
@@ -799,8 +804,8 @@ def main():
                 root = tk.Tk()
                 root.withdraw()
                 messagebox.showinfo("Screen Translator",
-                                    "App đang chạy rồi. Tìm biểu tượng ở khay hệ thống "
-                                    "(góc phải thanh taskbar).")
+                                    t("App đang chạy rồi. Tìm biểu tượng ở khay hệ thống "
+                                    "(góc phải thanh taskbar)."))
                 root.destroy()
             except Exception:
                 pass

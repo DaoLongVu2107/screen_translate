@@ -2,6 +2,7 @@
 import tkinter as tk
 
 from .winutil import virtual_screen
+from .i18n import t
 
 
 class RegionSelector:
@@ -19,7 +20,7 @@ class RegionSelector:
 
         self.canvas = tk.Canvas(self.win, bg="black", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
-        hint = "Kéo chuột để chọn vùng cần dịch     Esc hoặc chuột phải để hủy"
+        hint = t("Kéo chuột để chọn vùng cần dịch     Esc hoặc chuột phải để hủy")
         tw = 640
         self.canvas.create_rectangle(vw // 2 - tw // 2, 24, vw // 2 + tw // 2, 64,
                                      fill="#202020", outline="#3c3c3c")
