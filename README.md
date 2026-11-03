@@ -77,7 +77,7 @@ All hotkeys can be changed in Settings.
    - Right-click the box to copy the translation, show the original text, fix misread text, pick a new area...
 4. Press `Alt + S` (or right-click the tray icon → **Open settings**) to change languages, engines, appearance, hotkeys and per-app behavior.
 
-![Settings window](docs/images/settings.png)
+![Settings window](docs/images/settings_en.png)
 
 ## Translating with AI
 
