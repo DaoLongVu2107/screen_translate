@@ -432,8 +432,7 @@ class SettingsWindow:
         var = tk.IntVar(value=int(round(val))) if is_int else tk.DoubleVar(value=round(val, 4))
         spin = ttk.Spinbox(f, from_=lo, to=hi, increment=step, textvariable=var, width=8,
                            **({"format": fmt} if fmt else {}))
-        shown = f"{default * scale:g}"
-        self._row(f, row, label, spin, f"{hint} Mặc định: {shown}.")
+        self._row(f, row, label, spin, hint)
         self._nums[key] = (var, scale, lo, hi, is_int)
 
     def _tab_advanced(self, f):
