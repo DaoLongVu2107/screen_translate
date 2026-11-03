@@ -28,7 +28,10 @@ Yêu cầu: Windows 10 hoặc 11.
 - Khung dịch kéo đi tự do, đổi kích thước, có lịch sử các câu trước
 - Chế độ chuột bấm xuyên qua: khung dịch đè lên game mà vẫn click vào game bình thường
 - Hiện viền vùng đang dịch và kéo cạnh, góc để chỉnh trực tiếp, không cần chọn lại từ đầu
-- Rê chuột vào chữ gốc để tra nghĩa từng từ theo loại từ
+- Rê chuột vào chữ gốc để tra nghĩa từng từ theo loại từ, giữ `Shift` và kéo để tra cả cụm từ
+- Chế độ phụ đề: chỉ hiện câu mới nhất, chữ to, căn giữa phía dưới màn hình
+- Tự ẩn khung dịch khi vùng không còn chữ
+- Lọc ảnh trước khi đọc chữ: giữ chữ theo màu, tăng tương phản, đen trắng..., có khung xem trước
 - Nhớ vùng dịch theo từng app, kéo cửa sổ đi đâu vùng dịch theo đó, đổi kích thước cửa sổ thì vùng dịch co giãn theo
 - Chỉ dịch khi app đang ở phía trước, thu nhỏ hoặc chuyển cửa sổ thì tự dừng
 - Giao diện Sáng / Tối, tùy chỉnh phông chữ, màu, độ trong suốt
@@ -44,6 +47,7 @@ Yêu cầu: Windows 10 hoặc 11.
 | `Alt + H` | Ẩn / hiện khung dịch |
 | `Alt + C` | Bật / tắt chuột bấm xuyên qua khung dịch |
 | `Alt + R` | Hiện viền vùng đang dịch để kéo chỉnh; bấm lại hoặc `Enter` để lưu, `Esc` để hủy |
+| `Alt + V` | Đổi giữa chế độ phụ đề và chế độ lịch sử |
 | `Alt + S` | Mở cài đặt |
 | `Ctrl + Alt + X` | Thoát |
 

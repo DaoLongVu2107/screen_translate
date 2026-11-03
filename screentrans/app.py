@@ -37,6 +37,7 @@ class App:
         self.region = None
         self.settings = None
         self.user_hidden = False           # nguoi dung tu an khung -> khong tu hien lai
+        self.auto_hidden = False           # tu an vi vung het chu
         self.quick_popup = None
         self.editor = None                 # dang chinh vung (vien xanh)
         self._lookup = None
@@ -85,6 +86,7 @@ class App:
             on_error=lambda msg: self.post("error", msg),
             on_status=lambda msg: self.post("status", msg),
             gate=self._can_capture,
+            on_empty=lambda: self.post("empty"),
         )
         w.start()
         return w
@@ -114,7 +116,8 @@ class App:
                 self._show_overlay()
             return
         self.region = region
-        self.overlay.place_for_region(region)
+        self.auto_hidden = False
+        self._place_overlay(region)
         self._remember_game(region)
         self.overlay.set_status(self._running_status())
         self.user_hidden = False
@@ -183,7 +186,10 @@ class App:
         self._attach_game(hwnd, exe, origin, prof["region"], prof.get("client"))
         region = self._region_for(origin, self.game_size)
         self.region = region
-        if prof.get("overlay"):
+        self.auto_hidden = False
+        if self.overlay.mode == "subtitle":
+            self.overlay.set_geometry(*self._subtitle_geometry())
+        elif prof.get("overlay"):
             x, y, ow, oh = prof["overlay"]
             self.overlay.set_geometry(ox + x, oy + y, ow, oh)
         else:
@@ -197,6 +203,10 @@ class App:
     def _on_overlay_moved(self, geom):
         """Nguoi dung keo / doi kich thuoc khung dich -> nho lai cho game hien tai."""
         x, y, w, h = geom
+        if self.overlay.mode == "subtitle":
+            self.cfg["overlay"]["subtitle_geom"] = [x, y, w, h]
+            config.save(self.cfg)
+            return
         self.cfg["overlay"]["height"] = h
         if self.game_exe and self.game_origin and self.game_exe in self.cfg["profiles"]:
             ox, oy = self.game_origin
@@ -241,6 +251,7 @@ class App:
                 elif not reason and self.game_suspended:        # quay lai game
                     self.game_suspended = False
                     self.worker.set_auto(self._was_auto)
+                    self.auto_hidden = False
                     self._show_overlay()
                     self.overlay.set_status(self._running_status() if self._was_auto else "❚❚ tạm dừng")
                 origin = winutil.client_origin(hwnd)
@@ -256,7 +267,7 @@ class App:
                         self.region = (left + dx, top + dy, w, h)
                     self.game_origin, self.game_size = origin, size
                     self.worker.move_region(self.region)
-                    if dx or dy:
+                    if (dx or dy) and self.overlay.mode != "subtitle":
                         self.overlay.move_by(dx, dy)
 
         if not (self.cfg.get("remember_games", True) and self.cfg.get("auto_start_games", True)):
@@ -463,15 +474,68 @@ class App:
         self._lookup = None
 
     def _show_overlay(self):
-        """Hien khung dich, tru khi nguoi dung da tu an."""
-        if not self.user_hidden:
+        """Hien khung dich, tru khi nguoi dung da tu an hoac vung dang het chu."""
+        if not self.user_hidden and not self.auto_hidden:
             self.overlay.show()
+
+    def cmd_empty(self):
+        if self.cfg.get("auto_hide_empty", True) and self.overlay.visible and not self.user_hidden:
+            self.auto_hidden = True
+            self.overlay.hide()
+
+    # --- che do phu de ---
+    def _subtitle_geometry(self):
+        o = self.cfg["overlay"]
+        if o.get("subtitle_geom"):
+            return o["subtitle_geom"]
+        mon = None
+        try:
+            import mss
+            cx = self.region[0] + self.region[2] // 2 if self.region else 0
+            cy = self.region[1] + self.region[3] // 2 if self.region else 0
+            with mss.mss() as sct:
+                mons = sct.monitors[1:] or sct.monitors
+            mon = next((m for m in mons if m["left"] <= cx < m["left"] + m["width"]
+                        and m["top"] <= cy < m["top"] + m["height"]), mons[0])
+        except Exception:
+            pass
+        if not mon:
+            mon = {"left": 0, "top": 0, "width": self.root.winfo_screenwidth(),
+                   "height": self.root.winfo_screenheight()}
+        size = int(o.get("subtitle_font_size", 24))
+        w = int(mon["width"] * 0.7)
+        h = int(size * (5.2 if o.get("show_original") else 3.6))
+        x = mon["left"] + (mon["width"] - w) // 2
+        y = mon["top"] + mon["height"] - h - int(mon["height"] * 0.08)
+        return [x, y, w, h]
+
+    def _place_overlay(self, region):
+        if self.overlay.mode == "subtitle":
+            self.overlay.set_geometry(*self._subtitle_geometry())
+        else:
+            self.overlay.place_for_region(region)
+
+    def cmd_toggle_subtitle(self):
+        o = self.cfg["overlay"]
+        if self.overlay.mode == "subtitle":
+            self.overlay.set_mode("history")
+            if o.get("history_geom"):
+                self.overlay.set_geometry(*o["history_geom"])
+            elif self.region:
+                self.overlay.place_for_region(self.region)
+        else:
+            o["history_geom"] = list(self.overlay.geometry())
+            self.overlay.set_mode("subtitle")
+            self.overlay.set_geometry(*self._subtitle_geometry())
+        config.save(self.cfg)
+        self.auto_hidden = False
+        self._show_overlay()
 
     def cmd_toggle_overlay(self):
         if self.overlay.visible:
             self.cmd_hide_overlay()
         else:
-            self.user_hidden = False
+            self.user_hidden = self.auto_hidden = False
             self.overlay.show()
 
     def cmd_toggle_click_through(self):
@@ -487,6 +551,7 @@ class App:
         self.overlay.hide()
 
     def cmd_result(self, original, translated):
+        self.auto_hidden = False
         self.overlay.add_entry(original, translated)
         self._show_overlay()
         if self.worker.auto:
@@ -534,6 +599,12 @@ class App:
             self.overlay.add_entry(o, t)
         old.win.destroy()
         if self.region:
+            if old.mode != self.overlay.mode:          # doi kieu khung trong cai dat
+                if self.overlay.mode == "subtitle":
+                    cfg["overlay"]["history_geom"] = list(geom)
+                    geom = self._subtitle_geometry()
+                else:
+                    geom = cfg["overlay"].get("history_geom") or geom
             self.overlay.set_geometry(*geom)
             self.worker.region = self.region
             self.worker.set_auto(auto)
@@ -595,6 +666,7 @@ class App:
             item("toggle_overlay"),
             item("toggle_click_through"),
             item("edit_region"),
+            item("toggle_subtitle"),
             pystray.MenuItem("Quên vùng của app hiện tại", lambda: self.post("forget_game")),
             pystray.Menu.SEPARATOR,
             item("open_settings"),

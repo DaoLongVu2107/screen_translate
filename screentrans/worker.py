@@ -56,13 +56,16 @@ def _key(raw: str, lang: str) -> str:
 
 
 class TranslateWorker(threading.Thread):
-    def __init__(self, cfg: dict, on_result, on_error, on_status=None, gate=None):
+    def __init__(self, cfg: dict, on_result, on_error, on_status=None, gate=None, on_empty=None):
         super().__init__(daemon=True)
         self.cfg = cfg
         self.on_result = on_result     # on_result(original, translated)
         self.on_error = on_error       # on_error(message)
         self.on_status = on_status or (lambda msg: None)
         self.gate = gate or (lambda: True)   # tra ve False -> khong chup / khong dich luc nay
+        self.on_empty = on_empty or (lambda: None)   # vung khong con chu
+        self._empty_reads = 0
+        self._empty_sent = False
         self._candidate = None         # chu OCR vua doc, cho lan doc sau xac nhan
         self._unstable = 0             # so lan doc lien tiep ra chu khac nhau
         self._same_reads = 0           # so lan doc lien tiep ra cung chu dang cho
@@ -174,7 +177,8 @@ class TranslateWorker(threading.Thread):
         change = 1.0 if self._last_sig is None else _diff(sig, self._last_sig, delta)
         self._last_sig = sig
         threshold = float(self.cfg.get("change_pixels", 0.0001))
-        if change < threshold and not forced and self._candidate is None:
+        checking_empty = 0 < self._empty_reads and not self._empty_sent
+        if change < threshold and not forced and self._candidate is None and not checking_empty:
             if not self._idle_logged:
                 self._dbg("anh khong doi (%.3f%% < %.3f%%), bo qua", change * 100, threshold * 100)
                 self._idle_logged = True
@@ -194,6 +198,17 @@ class TranslateWorker(threading.Thread):
         lang = self.cfg["source_lang"]
         key = _key(text, lang)
         self._dbg("doc duoc (anh doi %.2f%%, OCR %.2fs): %r", change * 100, took, key[:80])
+
+        if not key:                      # vung khong co chu
+            self._empty_reads += 1
+            if not self._empty_sent and self._empty_reads >= int(self.cfg.get("hide_after_empty", 2)):
+                self._empty_sent = True
+                self._last_text = None   # chu cu hien lai sau do van duoc hien (lay tu bo nho)
+                self._dbg("vung khong con chu")
+                self.on_empty()
+        else:
+            self._empty_reads = 0
+            self._empty_sent = False
 
         if not forced:
             # Chu giong het cau vua dich (man hinh dung yen) -> khong gui lai

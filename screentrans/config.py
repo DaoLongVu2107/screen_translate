@@ -31,6 +31,7 @@ HOTKEY_NAMES = {
     "toggle_overlay": "Ẩn / hiện khung dịch",
     "quick_translate": "Dịch nhanh một lần",
     "edit_region": "Chỉnh vùng dịch",
+    "toggle_subtitle": "Chế độ phụ đề",
     "toggle_click_through": "Chuột xuyên qua khung",
     "open_settings": "Mở cài đặt",
     "quit": "Thoát",
@@ -44,6 +45,7 @@ DEFAULTS = {
         "toggle_overlay": "alt+h",
         "quick_translate": "alt+d",
         "edit_region": "alt+r",
+        "toggle_subtitle": "alt+v",
         "toggle_click_through": "alt+c",
         "open_settings": "alt+s",
         "quit": "ctrl+alt+x",
@@ -76,6 +78,8 @@ DEFAULTS = {
     "block_pause": 30,                # bi may dich chan thi nghi bao nhieu giay (gap doi moi lan)
     "history_max": 200,               # so cau giu trong lich su khung dich
     "word_lookup": True,              # re chuot vao chu goc de tra tung tu
+    "auto_hide_empty": True,          # vung het chu thi tu an khung dich
+    "hide_after_empty": 2,            # doc bao nhieu lan khong thay chu thi an
     "ocr_filter": {                   # loc anh truoc khi OCR (xem imgfilter.py)
         "text_color_on": False, "text_color": "#FFFFFF", "color_tolerance": 25,
         "autocontrast": False, "invert": False, "sharpen": False, "threshold": 0,
@@ -92,6 +96,9 @@ DEFAULTS = {
         "height": 160,
         "show_original": False,
         "click_through": False,       # chuot bam xuyen qua khung dich
+        "mode": "history",            # history: lich su cac cau | subtitle: phu de cau moi nhat
+        "subtitle_font_size": 24,
+        "subtitle_geom": None,        # vi tri khung phu de nguoi dung da keo (toa do man hinh)
     },
     "ui_theme": "light",              # giao dien cua so cai dat: light | dark
     "remember_games": True,           # nho vung dich theo tung game (theo ten file exe)

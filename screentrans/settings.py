@@ -20,6 +20,7 @@ THEMES = [("Tối", "#FFFFFF", "#101010"), ("Sáng", "#111111", "#F5F5F5"),
           ("Xanh lá", "#B8FFB0", "#0B1F0E")]
 
 UI_THEMES = {"light": "Sáng", "dark": "Tối"}
+OVERLAY_MODES = {"history": "Lịch sử các câu", "subtitle": "Phụ đề câu mới nhất"}
 
 POSITIONS = {"below": "Bên dưới vùng chọn", "above": "Bên trên vùng chọn", "over": "Đè lên vùng chọn"}
 OCR_ENGINES = {"windows": "Windows OCR", "tesseract": "Tesseract"}
@@ -310,31 +311,47 @@ class SettingsWindow:
 
     def _tab_appearance(self, f):
         o = self.cfg["overlay"]
-        self.ui_theme = _Choice(f, UI_THEMES, self.cfg.get("ui_theme", "light"))
-        self._row(f, 10, "Giao diện cửa sổ cài đặt", self.ui_theme.widget,
-                  "Đổi xong bấm Lưu, mở lại cửa sổ cài đặt để thấy giao diện mới.")
-        self.position = _Choice(f, POSITIONS, o["position"])
-        self._row(f, 0, "Vị trí khung dịch", self.position.widget)
+        # Kieu khung dich + co chu phu de
+        mbox = ttk.Frame(f)
+        self.ov_mode = _Choice(mbox, OVERLAY_MODES, o.get("mode", "history"), width=20)
+        self.ov_mode.widget.pack(side="left")
+        ttk.Label(mbox, text="Cỡ chữ phụ đề").pack(side="left", padx=(14, 6))
+        self.sub_size = tk.IntVar(value=int(o.get("subtitle_font_size", 24)))
+        ttk.Spinbox(mbox, from_=12, to=72, textvariable=self.sub_size, width=5).pack(side="left")
+        self._row(f, 0, "Kiểu khung dịch", mbox,
+                  "Phụ đề chỉ hiện câu mới nhất, chữ to, căn giữa phía dưới màn hình.")
 
+        self.position = _Choice(f, POSITIONS, o["position"])
+        self._row(f, 2, "Vị trí khung dịch", self.position.widget)
+
+        # Phong chu + co chu tren mot dong
+        fbox = ttk.Frame(f)
         families = sorted(set(tkfont.families()))
         self.font_family = tk.StringVar(value=o["font_family"])
-        self._row(f, 1, "Phông chữ", ttk.Combobox(f, textvariable=self.font_family, values=families))
-
+        ttk.Combobox(fbox, textvariable=self.font_family, values=families, width=22).pack(side="left")
+        ttk.Label(fbox, text="Cỡ chữ").pack(side="left", padx=(14, 6))
         self.font_size = tk.IntVar(value=o["font_size"])
-        self._row(f, 2, "Cỡ chữ", ttk.Spinbox(f, from_=8, to=48, textvariable=self.font_size, width=8))
+        ttk.Spinbox(fbox, from_=8, to=48, textvariable=self.font_size, width=5).pack(side="left")
+        self._row(f, 3, "Phông chữ", fbox)
 
+        # Mau chu + mau nen tren mot dong, mau co san ben duoi
         self.fg = tk.StringVar(value=o["fg"])
         self.bg = tk.StringVar(value=o["bg"])
-        self._fg_btn = self._color_button(f, self.fg)
-        self._bg_btn = self._color_button(f, self.bg)
-        self._row(f, 3, "Màu chữ", self._fg_btn)
-        self._row(f, 4, "Màu nền", self._bg_btn)
-
+        cbox = ttk.Frame(f)
+        self._fg_btn = self._color_button(cbox, self.fg)
+        self._bg_btn = self._color_button(cbox, self.bg)
+        ttk.Label(cbox, text="Chữ").pack(side="left", padx=(0, 6))
+        self._fg_btn.configure(width=6)
+        self._fg_btn.pack(side="left")
+        ttk.Label(cbox, text="Nền").pack(side="left", padx=(14, 6))
+        self._bg_btn.configure(width=6)
+        self._bg_btn.pack(side="left")
+        self._row(f, 4, "Màu", cbox)
         presets = ttk.Frame(f)
         for name, fg, bg in THEMES:
             tk.Button(presets, text=name, fg=fg, bg=bg, activeforeground=fg, activebackground=bg,
-                      relief="flat", bd=0, padx=10, pady=3, cursor="hand2", command=lambda a=fg, b=bg: self._set_colors(a, b)
-                      ).pack(side="left", padx=(0, 4))
+                      relief="flat", bd=0, padx=10, pady=3, cursor="hand2",
+                      command=lambda a=fg, b=bg: self._set_colors(a, b)).pack(side="left", padx=(0, 4))
         self._row(f, 5, "Mẫu màu", presets)
 
         self.transparency = tk.IntVar(value=round((1 - o["opacity"]) * 100))
@@ -346,25 +363,29 @@ class SettingsWindow:
         tlabel.pack(side="left", padx=(6, 0))
         tlabel.configure(text=f"{self.transparency.get()}%")
         self._row(f, 6, "Độ trong suốt", tbox,
-                  "0% là đặc hoàn toàn. Áp dụng cho cả khung lẫn chữ. Trên khung dịch có thể giữ Ctrl "
-                  "và lăn chuột để chỉnh nhanh.")
+                  "Áp dụng cho cả khung lẫn chữ. Giữ Ctrl và lăn chuột trên khung dịch để chỉnh nhanh.")
 
         self.show_original = tk.BooleanVar(value=o["show_original"])
         self.word_lookup = tk.BooleanVar(value=self.cfg.get("word_lookup", True))
+        self.auto_hide = tk.BooleanVar(value=self.cfg.get("auto_hide_empty", True))
         chk = ttk.Frame(f)
-        chk.grid(row=8, column=1, sticky="w", pady=5)
-        ttk.Checkbutton(chk, text="Hiện cả chữ gốc phía trên bản dịch",
-                        variable=self.show_original).pack(anchor="w")
-        ttk.Checkbutton(chk, text="Rê chuột vào chữ gốc để tra từng từ",
-                        variable=self.word_lookup).pack(anchor="w", pady=(4, 0))
+        chk.grid(row=8, column=1, sticky="w", pady=4)
+        for var, text in ((self.show_original, "Hiện cả chữ gốc phía trên bản dịch"),
+                          (self.word_lookup, "Rê chuột vào chữ gốc để tra từ, giữ Shift kéo để tra cụm"),
+                          (self.auto_hide, "Tự ẩn khung khi vùng dịch không còn chữ")):
+            ttk.Checkbutton(chk, text=text, variable=var).pack(anchor="w", pady=1)
 
-        ttk.Label(f, text="Xem trước").grid(row=9, column=0, sticky="nw", pady=(8, 0))
+        ttk.Label(f, text="Xem trước").grid(row=9, column=0, sticky="nw", pady=(6, 0))
         self.preview = tk.Label(f, text="Tiến sĩ, nhiệm vụ đã sẵn sàng.", anchor="w",
-                                justify="left", padx=10, pady=8)
-        self.preview.grid(row=9, column=1, sticky="we", pady=(8, 0))
+                                justify="left", padx=10, pady=6)
+        self.preview.grid(row=9, column=1, sticky="we", pady=(6, 0))
         for var in (self.fg, self.bg, self.font_family, self.font_size):
             var.trace_add("write", lambda *a: self._update_preview())
         self._update_preview()
+
+        self.ui_theme = _Choice(f, UI_THEMES, self.cfg.get("ui_theme", "light"), width=20)
+        self._row(f, 10, "Cửa sổ cài đặt", self.ui_theme.widget,
+                  "Giao diện sáng hoặc tối. Bấm Lưu rồi mở lại cửa sổ cài đặt để thấy thay đổi.")
 
     def _set_colors(self, fg, bg):
         self.fg.set(fg)
@@ -593,14 +614,16 @@ class SettingsWindow:
                   "Số giây tạm nghỉ khi máy dịch báo gửi quá nhiều, lần sau gấp đôi.")
         self._num(f, 10, "Số câu trong lịch sử", "history_max", 200, 10, 2000, 10,
                   "Số câu giữ lại trong khung dịch để lăn chuột xem lại.")
+        self._num(f, 12, "Ẩn khi không thấy chữ", "hide_after_empty", 2, 1, 20, 1,
+                  "Đọc bấy nhiêu lần liên tiếp không thấy chữ thì tự ẩn khung, nếu bật tự ẩn.")
 
         self.debug_log = tk.BooleanVar(value=self.cfg.get("debug_log", False))
         ttk.Checkbutton(f, text="Ghi log chi tiết để tìm lỗi", variable=self.debug_log
-                        ).grid(row=12, column=1, sticky="w", pady=(10, 0))
+                        ).grid(row=14, column=1, sticky="w", pady=(10, 0))
         ttk.Label(f, text="Ghi từng lần đọc chữ và dịch vào app.log. Chỉ bật khi cần tìm lỗi.",
-                  foreground=theme.palette()["hint"], wraplength=440).grid(row=13, column=1, sticky="w")
+                  foreground=theme.palette()["hint"], wraplength=440).grid(row=15, column=1, sticky="w")
         ttk.Button(f, text="Đặt lại mục này về mặc định", command=self._reset_advanced
-                   ).grid(row=14, column=1, sticky="w", pady=(12, 0))
+                   ).grid(row=16, column=1, sticky="w", pady=(12, 0))
 
     def _reset_advanced(self):
         for key, (var, scale, _lo, _hi, is_int) in self._nums.items():
@@ -704,6 +727,9 @@ class SettingsWindow:
         o["opacity"] = max(0.2, min(1.0, 1 - round(float(self.transparency.get())) / 100))
         o["show_original"] = bool(self.show_original.get())
         c["word_lookup"] = bool(self.word_lookup.get())
+        o["mode"] = self.ov_mode.get()
+        o["subtitle_font_size"] = max(12, min(72, int(self.sub_size.get())))
+        c["auto_hide_empty"] = bool(self.auto_hide.get())
         c["hotkeys"] = {k: v.get() for k, v in self.hk_vars.items()}
         c["ui_theme"] = self.ui_theme.get()
         c["remember_games"] = bool(self.remember_games.get())

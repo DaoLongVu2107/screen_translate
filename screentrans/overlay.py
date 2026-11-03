@@ -80,6 +80,16 @@ class Overlay:
         self.text.tag_raise("hover")
         self.text.bind("<Motion>", self._hover)
         self.text.bind("<Leave>", lambda e: self._hover_clear())
+        # Tra cum tu: giu Shift va keo qua nhieu tu trong chu goc
+        self.text.tag_configure("phrase", background=_blend(bg, "#4c9aff", 0.45))
+        self.text.bind("<Shift-ButtonPress-1>", self._phrase_start)
+        self.text.bind("<Shift-B1-Motion>", self._phrase_move)
+        self.text.bind("<Shift-ButtonRelease-1>", self._phrase_end)
+        self._phrase_anchor = self._phrase_range = None
+        # Che do phu de: chi hien cau moi nhat, chu to, can giua
+        self.text.tag_configure("center", justify="center")
+        self.mode = o.get("mode", "history")
+        self._family, self._size = family, size
         self.text.configure(state="disabled")
         # Keo bat ky cho nao tren khung de di chuyen (copy chu qua menu chuot phai)
         self.text.bind("<ButtonPress-1>", lambda e: (self._start_move(e), "break")[1])
@@ -107,6 +117,7 @@ class Overlay:
         m.add_command(label="Hiện / ẩn chữ gốc", command=self._toggle_original)
         m.add_command(label="Xóa lịch sử", command=self.clear)
         m.add_separator()
+        m.add_command(label="Chế độ phụ đề / lịch sử", command=lambda: on_menu("toggle_subtitle"))
         m.add_command(label="Chuột bấm xuyên qua khung", command=lambda: on_menu("toggle_click_through"))
         m.add_command(label="Quên vùng của app này", command=lambda: on_menu("forget_game"))
         m.add_command(label="Cài đặt…", command=lambda: on_menu("open_settings"))
@@ -118,6 +129,7 @@ class Overlay:
 
         exclude_from_capture(w)
         round_corners(w)
+        self._apply_mode()
         self.click_through = False
         self.set_click_through(bool(o.get("click_through")))
 
@@ -183,6 +195,9 @@ class Overlay:
             return
         t = self.text
         idx = t.index(f"@{e.x},{e.y}")
+        if self._phrase_range and t.compare(self._phrase_range[0], "<=", idx) \
+                and t.compare(idx, "<", self._phrase_range[1]):
+            return                       # dang xem nghia cua cum tu vua chon
         if "orig" not in t.tag_names(idx):
             self._hover_clear()
             return
@@ -201,6 +216,8 @@ class Overlay:
             350, lambda: self.lookup(word, lambda res: self._show_tip(word, res, x, y)))
 
     def _hover_clear(self):
+        self.text.tag_remove("phrase", "1.0", "end")
+        self._phrase_range = None
         if self._hover_job:
             self.win.after_cancel(self._hover_job)
             self._hover_job = None
@@ -212,6 +229,50 @@ class Overlay:
             except tk.TclError:
                 pass
             self._tip = None
+
+    def _phrase_start(self, e):
+        self._hover_clear()
+        t = self.text
+        idx = t.index(f"@{e.x},{e.y}")
+        self._phrase_anchor = idx if (self.lookup and "orig" in t.tag_names(idx)) else None
+        return "break"
+
+    def _phrase_bounds(self, e):
+        t = self.text
+        idx = t.index(f"@{e.x},{e.y}")
+        a, b = sorted((self._phrase_anchor, idx), key=lambda i: tuple(map(int, i.split("."))))
+        start, end = t.index(f"{a} wordstart"), t.index(f"{b} wordend")
+        rng = t.tag_prevrange("orig", f"{self._phrase_anchor}+1c")   # chi trong dong chu goc nay
+        if rng:
+            if t.compare(start, "<", rng[0]):
+                start = rng[0]
+            if t.compare(end, ">", rng[1]):
+                end = rng[1]
+        return start, end
+
+    def _phrase_move(self, e):
+        if not self._phrase_anchor:
+            return "break"
+        start, end = self._phrase_bounds(e)
+        self.text.tag_remove("phrase", "1.0", "end")
+        self.text.tag_add("phrase", start, end)
+        return "break"
+
+    def _phrase_end(self, e):
+        if not self._phrase_anchor:
+            return "break"
+        start, end = self._phrase_bounds(e)
+        self._phrase_anchor = None
+        phrase = " ".join(self.text.get(start, end).split()).strip(" .,!?;:\"'…—")
+        if not phrase or len(phrase) > 120 or not any(c.isalpha() for c in phrase):
+            self.text.tag_remove("phrase", "1.0", "end")
+            return "break"
+        self.text.tag_add("phrase", start, end)
+        self._phrase_range = (start, end)
+        self._hover_word = phrase
+        x, y = e.x_root, e.y_root
+        self.lookup(phrase, lambda res: self._show_tip(phrase, res, x, y))
+        return "break"
 
     def _show_tip(self, word, result, x, y):
         if word != self._hover_word or not self.win.winfo_exists():
@@ -241,6 +302,9 @@ class Overlay:
                          bg=bg).pack(side="left", anchor="n")
             tk.Label(row, text=text, font=(family, 10), fg=fg, bg=bg, justify="left",
                      wraplength=320).pack(side="left", anchor="w", padx=(6 if pos else 0, 0))
+        if " " not in word:
+            tk.Label(tip, text="Giữ Shift và kéo qua nhiều từ để tra cả cụm", font=(family, 8),
+                     fg=_blend(fg, bg, 0.55), bg=bg, anchor="w", padx=10).pack(fill="x", pady=(4, 0))
         tk.Frame(tip, bg=bg, height=4).pack()
         tip.update_idletasks()
         sw, sh = tip.winfo_screenwidth(), tip.winfo_screenheight()
@@ -257,10 +321,44 @@ class Overlay:
         self.add_entry(original, translated)
         self.show()
 
+    def _apply_mode(self):
+        sub = self.mode == "subtitle"
+        if sub:
+            self.bar.pack_forget()
+            size = int(self.cfg.get("subtitle_font_size", 24))
+        else:
+            self.bar.pack(fill="x", side="top", before=self.text)
+            size = self._size
+        self.text.configure(font=(self._family, size), spacing3=max(4, size // 2))
+        self.text.tag_configure("orig", font=(self._family, max(8, int(size * (0.6 if sub else 0.8)))))
+        self._rerender()
+        self.text.see("end")
+
+    def set_mode(self, mode: str):
+        self.mode = mode if mode in ("history", "subtitle") else "history"
+        self.cfg["mode"] = self.mode
+        self._apply_mode()
+
+    def _render_subtitle(self):
+        t = self.text
+        t.configure(state="normal")
+        t.delete("1.0", "end")
+        if self.entries:
+            original, translated = self.entries[-1]
+            if self.cfg.get("show_original") and original:
+                t.insert("end", original + "\n", ("orig", "center"))
+            t.insert("end", translated, ("new", "center"))
+        t.configure(state="disabled")
+
     def add_entry(self, original: str, translated: str):
         if not translated:
             return
         self.entries.append((original, translated))
+        if self.mode == "subtitle":
+            if len(self.entries) > self.max_entries:
+                self.entries = self.entries[-self.max_entries:]
+            self._render_subtitle()
+            return
         t = self.text
         at_bottom = t.yview()[1] >= 0.999
         t.configure(state="normal")
@@ -279,6 +377,9 @@ class Overlay:
             t.see("end")
 
     def _rerender(self):
+        if self.mode == "subtitle":
+            self._render_subtitle()
+            return
         entries, self.entries = self.entries, []
         t = self.text
         t.configure(state="normal")
