@@ -111,6 +111,7 @@ class Overlay:
         m.add_command(label="Tạm dừng / tiếp tục", command=lambda: on_menu("toggle_auto"))
         m.add_command(label="Dịch lại ngay", command=lambda: on_menu("translate_once"))
         m.add_separator()
+        m.add_command(label="Sửa chữ gốc rồi dịch lại…", command=lambda: on_menu("edit_ocr"))
         m.add_command(label="Copy câu mới nhất", command=lambda: self._copy(self.latest()[1]))
         m.add_command(label="Copy chữ gốc mới nhất", command=lambda: self._copy(self.latest()[0]))
         m.add_command(label="Copy toàn bộ lịch sử", command=self._copy_all)
@@ -375,6 +376,13 @@ class Overlay:
         t.configure(state="disabled")
         if at_bottom:
             t.see("end")
+
+    def replace_last(self, original: str, translated: str):
+        """Thay cau moi nhat (sau khi nguoi dung sua chu goc va dich lai)."""
+        if self.entries:
+            self.entries[-1] = (original, translated)
+            self._rerender()
+            self.text.see("end")
 
     def _rerender(self):
         if self.mode == "subtitle":

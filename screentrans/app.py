@@ -9,6 +9,7 @@ from tkinter import messagebox
 
 from . import config, theme
 from .overlay import Overlay
+from .ocr_edit import OcrEditDialog
 from .quick import QuickPopup
 from .region_editor import RegionEditor
 from .single_instance import SingleInstance
@@ -32,6 +33,8 @@ class App:
         self.root.withdraw()
         self.root.title("Screen Translator")
         theme.apply(self.root, self.cfg.get("ui_theme", "light"))
+        from . import sysutil
+        sysutil.apply_proxy(self.cfg.get("proxy", ""))
 
         self.selecting = False
         self.region = None
@@ -39,6 +42,7 @@ class App:
         self.user_hidden = False           # nguoi dung tu an khung -> khong tu hien lai
         self.auto_hidden = False           # tu an vi vung het chu
         self.quick_popup = None
+        self.hotkey_errors = []
         self.editor = None                 # dang chinh vung (vien xanh)
         self._lookup = None
         # Game dang gan voi vung dich (de nho vung va bam theo cua so game)
@@ -58,6 +62,7 @@ class App:
         self.root.after(50, self._pump)
         if self.first_run:
             self.root.after(300, self._welcome)
+        self.root.after(1500, self._startup_checks)
 
     # Moi luong khac (phim tat, khay, worker) chi day lenh vao queue;
     # tkinter chi duoc dung tu luong chinh.
@@ -339,6 +344,82 @@ class App:
         self.overlay.set_status("↻ đang dịch lại…")
         self.worker.translate_once()
 
+    # --- kiem tra luc khoi dong: cai dat sai, ban moi ---
+    def _notify(self, title, message):
+        log.info("%s: %s", title, message)
+        try:
+            if self.tray and getattr(self.tray, "HAS_NOTIFICATION", True):
+                self.tray.notify(message, title)
+                return
+        except Exception:
+            pass
+        self.overlay.set_status("⚠ " + message.splitlines()[0][:80])
+
+    def _startup_checks(self):
+        cfg, hk = self.cfg, list(self.hotkey_errors)
+
+        def work():
+            import datetime
+            from . import sysutil
+            from .validate import validate
+            try:
+                problems = validate(cfg, deep=True, hotkey_errors=hk)
+                if problems:
+                    self.post("call", self._notify, "Cài đặt chưa đúng",
+                              "\n".join(m for _, m in problems[:3]) + "\nMở Cài đặt để xem chi tiết.")
+            except Exception:
+                log.exception("Kiem tra cai dat that bai")
+            today = datetime.date.today().isoformat()
+            if cfg.get("check_updates", True) and cfg.get("last_update_check") != today:
+                try:
+                    newer, tag, url = sysutil.check_update()
+                    cfg["last_update_check"] = today
+                    self.post("call", config.save, cfg)
+                    if newer:
+                        self.post("call", self._offer_update, tag, url)
+                except Exception as e:
+                    log.info("Khong kiem tra duoc ban moi: %s", e)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _offer_update(self, tag, url):
+        import webbrowser
+        if messagebox.askyesno("Screen Translator", f"Có bản mới {tag}. Mở trang tải về?"):
+            webbrowser.open(url)
+
+    # --- sua chu OCR roi dich lai ---
+    def cmd_edit_ocr(self):
+        if not self.overlay.entries:
+            self.overlay.set_status("chưa có câu nào để sửa")
+            return
+        original, _ = self.overlay.entries[-1]
+        OcrEditDialog(self.root, original, lambda text, fixes: self._retranslate(
+            text, fixes, lambda o, t: self.overlay.replace_last(o, t)))
+
+    def _edit_quick(self, popup):
+        if popup.original:
+            OcrEditDialog(self.root, popup.original, lambda text, fixes: self._retranslate(
+                text, fixes, popup.show_result))
+
+    def _retranslate(self, text, fixes, show):
+        if fixes:                        # luu cac cho sua vao bang thay the loi OCR
+            subs = self.cfg.setdefault("ocr_substitutions", [])
+            have = {(x.get("from"), x.get("to")) for x in subs}
+            for frm, to in fixes:
+                if (frm, to) not in have:
+                    subs.append({"from": frm, "to": to, "word": True})
+            config.save(self.cfg)
+            log.info("Them vao bang thay the OCR: %s", fixes)
+        cfg = self.cfg
+
+        def work():
+            from .translator import Translator
+            try:
+                original, translated = Translator(cfg).translate_dialogue(text)
+                self.post("call", show, original, translated)
+            except Exception as e:
+                self.post("error", f"Dịch lại thất bại: {e}")
+        threading.Thread(target=work, daemon=True).start()
+
     # --- ho tro cho khung xem truoc trong cai dat ---
     def _capture_region(self):
         if not self.region:
@@ -427,7 +508,8 @@ class App:
         self.selecting = False
         if region is None:
             return
-        popup = QuickPopup(self.root, self.cfg, region, on_close=self._on_quick_closed)
+        popup = QuickPopup(self.root, self.cfg, region, on_close=self._on_quick_closed,
+                           on_edit=self._edit_quick)
         self.quick_popup = popup
         cfg = self.cfg
 
@@ -470,6 +552,7 @@ class App:
     def _on_quick_closed(self, popup):
         if self.quick_popup is popup:
             self.quick_popup = None
+        self.hotkey_errors = []
         self.editor = None                 # dang chinh vung (vien xanh)
         self._lookup = None
 
@@ -575,7 +658,8 @@ class App:
                                        pause_hotkeys=self.unregister_hotkeys,
                                        resume_hotkeys=self.register_hotkeys,
                                        hooks={"capture": self._capture_region,
-                                              "ocr": self._ocr_async})
+                                              "ocr": self._ocr_async,
+                                              "hotkey_errors": self.hotkey_errors})
 
     def apply_config(self, cfg):
         """Luu cai dat va ap dung ngay, khong can khoi dong lai."""
@@ -583,6 +667,10 @@ class App:
         if deleted is not None:   # giu cac game vua luu trong luc cua so cai dat dang mo
             cfg["profiles"] = {k: v for k, v in self.cfg["profiles"].items() if k not in deleted}
         self._lookup = None              # ngon ngu co the da doi
+        from . import sysutil
+        sysutil.apply_proxy(cfg.get("proxy", ""))
+        if "autostart" in cfg and cfg["autostart"] != sysutil.is_autostart():
+            sysutil.set_autostart(cfg["autostart"])
         if cfg.get("ui_theme") != self.cfg.get("ui_theme"):
             theme.apply(self.root, cfg.get("ui_theme", "light"))
         self.cfg = cfg
@@ -630,6 +718,7 @@ class App:
 
     # --- phim tat & khay ---
     def register_hotkeys(self):
+        self.hotkey_errors.clear()
         try:
             import keyboard
         except ImportError:
@@ -642,6 +731,7 @@ class App:
                 keyboard.add_hotkey(combo, self.post, args=(name,))
             except Exception:
                 log.exception("Khong dang ky duoc phim tat %s", combo)
+                self.hotkey_errors.append(combo)
 
     def unregister_hotkeys(self):
         try:

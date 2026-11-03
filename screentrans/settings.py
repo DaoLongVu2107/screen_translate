@@ -65,16 +65,22 @@ class SettingsWindow:
         head = ttk.Frame(w, padding=(18, 14, 18, 0))
         head.pack(fill="x")
         ttk.Label(head, text="Cài đặt", style="Title.TLabel").pack(side="left")
+        # Dai bao loi cai dat (to do), an khi khong co loi
+        self.banner = tk.Label(w, text="", justify="left", anchor="w", wraplength=700, padx=12, pady=8,
+                               fg="#a4262c" if theme.current == "light" else "#ff9b9b",
+                               bg="#fde7e9" if theme.current == "light" else "#442726")
 
-        nb = ttk.Notebook(w)
+        nb = self.nb = ttk.Notebook(w)
         nb.pack(fill="both", expand=True, padx=18, pady=(10, 0))
         self._tab_languages(self._tab(nb, "Ngôn ngữ"))
-        self._tab_ocr(self._tab(nb, "Nhận dạng chữ"))
+        self._tab_ocr(self._tab(nb, "Nhận dạng"))
         self._tab_translator(self._tab(nb, "Dịch"))
         self._tab_appearance(self._tab(nb, "Giao diện"))
         self._tab_games(self._tab(nb, "App"))
         self._tab_filter(self._tab(nb, "Lọc ảnh"))
+        self._tab_subs(self._tab(nb, "Thay thế"))
         self._tab_advanced(self._tab(nb, "Nâng cao"))
+        self._tab_system(self._tab(nb, "Hệ thống"))
         self._tab_hotkeys(self._tab(nb, "Phím tắt"))
 
         bar = ttk.Frame(w)
@@ -83,6 +89,12 @@ class SettingsWindow:
         ttk.Button(bar, text="Hủy", command=self.close).pack(side="right")
         ttk.Button(bar, text="Lưu", style="Accent.TButton", command=self.save).pack(side="right", padx=8)
         w.focus_force()
+        # Kiem tra cai dat sai ngay khi mo
+        try:
+            from .validate import validate
+            self._mark_problems(validate(self.cfg, deep=True, hotkey_errors=self.hooks.get("hotkey_errors")))
+        except Exception:
+            pass
 
     # --- tien ich dung giao dien ---
     @staticmethod
@@ -132,9 +144,30 @@ class SettingsWindow:
                   "Giúp đọc chữ nhỏ chính xác hơn.")
 
     def _tab_translator(self, f):
-        self.translator = _Choice(f, TRANSLATORS, self.cfg["translator"])
+        from .translator import engine_chain
+        # Thu tu may dich: may tren cung dung truoc, loi thi chuyen may ke tiep
+        self.chain = engine_chain(self.cfg)
+        cbox = ttk.Frame(f)
+        self.chain_list = tk.Listbox(cbox, height=4, activestyle="none", exportselection=False,
+                                     font=("Segoe UI", 10),
+                                     **{k: v for k, v in theme.field_options().items()
+                                        if k != "insertbackground"})
+        self.chain_list.pack(side="left", fill="x", expand=True)
+        self.chain_list.bind("<<ListboxSelect>>", lambda e: self._chain_selected())
+        btns = ttk.Frame(cbox)
+        btns.pack(side="left", padx=(6, 0), anchor="n")
+        for text, cmd in (("Lên", lambda: self._chain_move(-1)), ("Xuống", lambda: self._chain_move(1)),
+                          ("Xóa", self._chain_remove)):
+            ttk.Button(btns, text=text, width=6, command=cmd).pack(pady=(0, 3))
+        self._row(f, 0, "Thứ tự máy dịch", cbox,
+                  "Dùng máy trên cùng trước; máy đó bị chặn, mất mạng hay lỗi thì tự chuyển sang máy kế tiếp.")
+
+        pick = ttk.Frame(f)
+        self.translator = _Choice(pick, TRANSLATORS, self.chain[0], width=26)
+        self.translator.widget.pack(side="left")
         self.translator.widget.bind("<<ComboboxSelected>>", lambda e: self._show_engine())
-        self._row(f, 0, "Máy dịch", self.translator.widget)
+        ttk.Button(pick, text="Thêm vào thứ tự", command=self._chain_add).pack(side="left", padx=(6, 0))
+        self._row(f, 2, "Máy dịch", pick, "Chọn một máy để xem và nhập API key, model của máy đó.")
 
         # DeepL
         self.deepl_frame = ttk.Frame(f)
@@ -199,7 +232,7 @@ class SettingsWindow:
 
         # Xu ly chu truoc khi dich (ap dung cho moi may dich)
         opts = ttk.Frame(f)
-        opts.grid(row=2, column=0, columnspan=2, sticky="we", pady=(14, 0))
+        opts.grid(row=5, column=0, columnspan=2, sticky="we", pady=(14, 0))
         ttk.Separator(opts).pack(fill="x", pady=(0, 10))
         self.clean_ocr = tk.BooleanVar(value=self.cfg.get("clean_ocr", True))
         self.split_speaker = tk.BooleanVar(value=self.cfg.get("split_speaker", True))
@@ -208,7 +241,7 @@ class SettingsWindow:
             ttk.Checkbutton(opts, text=text, variable=var).pack(anchor="w", pady=2)
 
         nums = ttk.Frame(f)
-        nums.grid(row=3, column=0, columnspan=2, sticky="we", pady=(8, 0))
+        nums.grid(row=6, column=0, columnspan=2, sticky="we", pady=(8, 0))
         nums.columnconfigure(0, minsize=LABEL_W)
         nums.columnconfigure(1, weight=1)
         self.google_ctx = tk.IntVar(value=self.cfg.get("google_context_lines", 0))
@@ -224,7 +257,47 @@ class SettingsWindow:
                   "bị Google chặn, giảm xuống nếu muốn câu mới hiện nhanh hơn.")
 
         self._current_ai = None
+        self._chain_refresh(0)
         self._show_engine()
+
+    def _chain_refresh(self, select=None):
+        self.chain_list.delete(0, "end")
+        for i, eng in enumerate(self.chain, 1):
+            self.chain_list.insert("end", f"{i}. {TRANSLATORS.get(eng, eng)}")
+        if select is not None and self.chain:
+            self.chain_list.selection_set(select)
+            self.chain_list.see(select)
+
+    def _chain_selected(self):
+        sel = self.chain_list.curselection()
+        if sel:
+            self.translator.var.set(TRANSLATORS[self.chain[sel[0]]])
+            self._show_engine()
+
+    def _chain_add(self):
+        eng = self.translator.get()
+        if eng not in self.chain:
+            self.chain.append(eng)
+        self._chain_refresh(self.chain.index(eng))
+
+    def _chain_move(self, step):
+        sel = self.chain_list.curselection()
+        if not sel:
+            return
+        i, j = sel[0], sel[0] + step
+        if 0 <= j < len(self.chain):
+            self.chain[i], self.chain[j] = self.chain[j], self.chain[i]
+            self._chain_refresh(j)
+
+    def _chain_remove(self):
+        sel = self.chain_list.curselection()
+        if not sel:
+            return
+        if len(self.chain) == 1:
+            messagebox.showinfo("Cài đặt", "Cần giữ ít nhất một máy dịch.", parent=self.win)
+            return
+        del self.chain[sel[0]]
+        self._chain_refresh(min(sel[0], len(self.chain) - 1))
 
     def _save_ai_fields(self):
         if self._current_ai:
@@ -238,11 +311,11 @@ class SettingsWindow:
         self.gcloud_frame.grid_forget()
         self.ai_frame.grid_forget()
         if engine == "deepl":
-            self.deepl_frame.grid(row=1, column=0, columnspan=2, sticky="we")
+            self.deepl_frame.grid(row=4, column=0, columnspan=2, sticky="we")
         elif engine == "google_cloud":
-            self.gcloud_frame.grid(row=1, column=0, columnspan=2, sticky="we")
+            self.gcloud_frame.grid(row=4, column=0, columnspan=2, sticky="we")
         elif engine in AI_PROVIDERS:
-            self.ai_frame.grid(row=1, column=0, columnspan=2, sticky="we")
+            self.ai_frame.grid(row=4, column=0, columnspan=2, sticky="we")
             data = self.ai_store.get(engine, {})
             self.ai_key.set(data.get("api_key", ""))
             self.ai_model.set(data.get("model") or AI_PROVIDERS[engine][1][0])
@@ -550,7 +623,7 @@ class SettingsWindow:
         self._prev_job = self.win.after(400, self._preview_refresh)
 
     @staticmethod
-    def _fit(img, max_w=600, max_h=130):
+    def _fit(img, max_w=600, max_h=90):
         k = min(max_w / img.width, max_h / img.height, 1.0)
         return img.resize((max(1, int(img.width * k)), max(1, int(img.height * k))))
 
@@ -596,6 +669,160 @@ class SettingsWindow:
         self._f_color_btn.configure(bg=c, activebackground=c)
         self.f_color_on.set(True)
         self.f_status.configure(text=f"Đã lấy màu chữ {c}")
+
+    # --- bang thay the loi OCR ---
+    def _tab_subs(self, f):
+        self.subs = [dict(x) for x in self.cfg.get("ocr_substitutions", [])]
+        ttk.Label(f, text="Tự sửa những chữ OCR hay đọc nhầm trước khi dịch, ví dụ “rn” thành “m”, "
+                          "“0” thành “O”. Áp dụng từ trên xuống dưới.",
+                  foreground=theme.palette()["hint"], wraplength=640).grid(row=0, column=0, columnspan=2,
+                                                                           sticky="w", pady=(0, 8))
+        cols = ("from", "to", "word")
+        self.subs_tree = ttk.Treeview(f, columns=cols, show="headings", height=8, selectmode="browse")
+        for c, text, width in (("from", "Chữ OCR đọc nhầm", 230), ("to", "Sửa thành", 230), ("word", "Cả từ", 80)):
+            self.subs_tree.heading(c, text=text)
+            self.subs_tree.column(c, width=width, anchor="w" if c != "word" else "center",
+                                  stretch=c != "word")
+        self.subs_tree.grid(row=1, column=0, columnspan=2, sticky="we")
+        self.subs_tree.bind("<<TreeviewSelect>>", lambda e: self._subs_pick())
+        form = ttk.Frame(f)
+        form.grid(row=2, column=0, columnspan=2, sticky="we", pady=(8, 0))
+        self.sub_from, self.sub_to = tk.StringVar(), tk.StringVar()
+        self.sub_word = tk.BooleanVar(value=True)
+        ttk.Entry(form, textvariable=self.sub_from, width=22).pack(side="left")
+        ttk.Label(form, text="→").pack(side="left", padx=6)
+        ttk.Entry(form, textvariable=self.sub_to, width=22).pack(side="left")
+        ttk.Checkbutton(form, text="Cả từ", variable=self.sub_word).pack(side="left", padx=8)
+        btns = ttk.Frame(f)
+        btns.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        for text, cmd in (("Thêm", self._subs_add), ("Sửa dòng đang chọn", self._subs_update),
+                          ("Xóa", self._subs_delete), ("Lên", lambda: self._subs_move(-1)),
+                          ("Xuống", lambda: self._subs_move(1))):
+            ttk.Button(btns, text=text, command=cmd).pack(side="left", padx=(0, 4))
+        ttk.Label(f, text="“Cả từ”: chỉ sửa khi đứng riêng thành một từ, để “Dr” → “Doctor” không làm "
+                          "hỏng chữ “Drone”.", foreground=theme.palette()["hint"],
+                  wraplength=640).grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        test = ttk.Frame(f)
+        test.grid(row=5, column=0, columnspan=2, sticky="we", pady=(12, 0))
+        ttk.Label(test, text="Thử:").pack(side="left")
+        self.sub_test = tk.StringVar()
+        ttk.Entry(test, textvariable=self.sub_test, width=36).pack(side="left", padx=6)
+        self.sub_test_out = ttk.Label(test, text="", foreground=theme.palette()["hint"])
+        self.sub_test_out.pack(side="left")
+        self.sub_test.trace_add("write", lambda *a: self._subs_test())
+        self._subs_refresh()
+
+    def _subs_refresh(self, select=None):
+        self.subs_tree.delete(*self.subs_tree.get_children())
+        for i, sub in enumerate(self.subs):
+            self.subs_tree.insert("", "end", iid=str(i), values=(sub.get("from", ""), sub.get("to", ""),
+                                                                 "✓" if sub.get("word") else ""))
+        if select is not None and 0 <= select < len(self.subs):
+            self.subs_tree.selection_set(str(select))
+        self._subs_test()
+
+    def _subs_sel(self):
+        sel = self.subs_tree.selection()
+        return int(sel[0]) if sel else None
+
+    def _subs_pick(self):
+        i = self._subs_sel()
+        if i is not None:
+            sub = self.subs[i]
+            self.sub_from.set(sub.get("from", ""))
+            self.sub_to.set(sub.get("to", ""))
+            self.sub_word.set(bool(sub.get("word")))
+
+    def _subs_value(self):
+        frm = self.sub_from.get()
+        return {"from": frm, "to": self.sub_to.get(), "word": bool(self.sub_word.get())} if frm else None
+
+    def _subs_add(self):
+        v = self._subs_value()
+        if v:
+            self.subs.append(v)
+            self._subs_refresh(len(self.subs) - 1)
+
+    def _subs_update(self):
+        i, v = self._subs_sel(), self._subs_value()
+        if i is not None and v:
+            self.subs[i] = v
+            self._subs_refresh(i)
+
+    def _subs_delete(self):
+        i = self._subs_sel()
+        if i is not None:
+            del self.subs[i]
+            self._subs_refresh(min(i, len(self.subs) - 1))
+
+    def _subs_move(self, step):
+        i = self._subs_sel()
+        if i is not None and 0 <= i + step < len(self.subs):
+            self.subs[i], self.subs[i + step] = self.subs[i + step], self.subs[i]
+            self._subs_refresh(i + step)
+
+    def _subs_test(self):
+        from .textproc import apply_substitutions
+        text = self.sub_test.get() if hasattr(self, "sub_test") else ""
+        self.sub_test_out.configure(text=("→ " + apply_substitutions(text, self.subs)) if text else "")
+
+    # --- he thong ---
+    def _tab_system(self, f):
+        from . import __version__, sysutil
+        self.autostart = tk.BooleanVar(value=sysutil.is_autostart())
+        ttk.Checkbutton(f, text="Khởi động cùng Windows", variable=self.autostart
+                        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 2))
+        ttk.Label(f, text="App tự chạy ẩn ở khay hệ thống mỗi khi bật máy.",
+                  foreground=theme.palette()["hint"]).grid(row=1, column=0, columnspan=2, sticky="w")
+        self.proxy = tk.StringVar(value=self.cfg.get("proxy", ""))
+        self._row(f, 2, "Proxy", ttk.Entry(f, textvariable=self.proxy),
+                  "Dùng khi mạng chặn Google hoặc phải đi qua proxy công ty, ví dụ http://127.0.0.1:8080. "
+                  "Để trống là không dùng.")
+        self.check_updates = tk.BooleanVar(value=self.cfg.get("check_updates", True))
+        ttk.Checkbutton(f, text="Tự kiểm tra bản mới khi mở app", variable=self.check_updates
+                        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 2))
+        upd = ttk.Frame(f)
+        upd.grid(row=5, column=0, columnspan=2, sticky="w")
+        ttk.Label(upd, text=f"Phiên bản hiện tại: {__version__}").pack(side="left")
+        ttk.Button(upd, text="Kiểm tra ngay", command=self._check_update_now).pack(side="left", padx=10)
+        self.update_result = ttk.Label(upd, text="", foreground=theme.palette()["hint"])
+        self.update_result.pack(side="left")
+        ttk.Label(f, text="config.json và app.log nằm cùng thư mục với app, chép cả thư mục sang máy "
+                          "khác là dùng được ngay.", foreground=theme.palette()["hint"],
+                  wraplength=640).grid(row=6, column=0, columnspan=2, sticky="w", pady=(14, 0))
+
+    def _check_update_now(self):
+        from . import sysutil
+        self.update_result.configure(text="Đang kiểm tra…")
+
+        def done(result, err):
+            if err:
+                self.update_result.configure(text=f"Không kiểm tra được: {err}"[:120])
+                return
+            newer, tag, url = result
+            if newer:
+                self.update_result.configure(text=f"Có bản mới {tag}")
+                if messagebox.askyesno("Cập nhật", f"Có bản mới {tag}. Mở trang tải về?", parent=self.win):
+                    webbrowser.open(url)
+            else:
+                self.update_result.configure(text="Đang dùng bản mới nhất." if tag else
+                                             "Chưa có bản phát hành nào trên GitHub.")
+        self._run_bg(sysutil.check_update, done)
+
+    # --- to do cac muc cai dat sai ---
+    def _mark_problems(self, problems):
+        bad = {tab for tab, _ in problems}
+        for tab_id in self.nb.tabs():
+            name = self.nb.tab(tab_id, "text").removeprefix("⚠ ")
+            self.nb.tab(tab_id, text=("⚠ " + name) if name in bad else name)
+        if problems:
+            lines = [f"• {tab}: {msg}" for tab, msg in problems[:3]]
+            if len(problems) > 3:
+                lines.append(f"• … và {len(problems) - 3} chỗ khác, xem các tab có dấu ⚠")
+            self.banner.configure(text="Có chỗ cài đặt chưa đúng:\n" + "\n".join(lines))
+            self.banner.pack(fill="x", padx=18, pady=(8, 0), after=self.banner.master.winfo_children()[0])
+        else:
+            self.banner.pack_forget()
 
     def _tab_advanced(self, f):
         self._nums = {}
@@ -707,8 +934,13 @@ class SettingsWindow:
             c[key] = int(round(v)) if is_int else v
         c["debug_log"] = bool(self.debug_log.get())
         c["ocr_filter"] = self._filter_values()
+        c["ocr_substitutions"] = [dict(x) for x in self.subs]
+        c["proxy"] = self.proxy.get().strip()
+        c["check_updates"] = bool(self.check_updates.get())
+        c["autostart"] = bool(self.autostart.get())
         c["upscale"] = float(self.upscale.get())
-        c["translator"] = self.translator.get()
+        c["translator_chain"] = list(self.chain) or ["google"]
+        c["translator"] = c["translator_chain"][0]
         c["deepl_api_key"] = self.deepl_key.get().strip()
         c["google_cloud_api_key"] = self.gcloud_key.get().strip()
         self._save_ai_fields()
@@ -750,15 +982,14 @@ class SettingsWindow:
             messagebox.showerror("Cài đặt", "Có hai chức năng đang dùng chung một phím tắt.",
                                  parent=self.win)
             return
-        if cfg["translator"] == "google_cloud" and not cfg["google_cloud_api_key"]:
-            messagebox.showerror("Cài đặt", "Cần nhập Google Cloud API key.", parent=self.win)
-            return
-        if cfg["translator"] == "deepl" and not cfg["deepl_api_key"]:
-            messagebox.showerror("Cài đặt", "Cần nhập DeepL API key.", parent=self.win)
-            return
-        if cfg["translator"] in AI_PROVIDERS and not cfg["ai"][cfg["translator"]]["api_key"]:
-            messagebox.showerror("Cài đặt", "Cần nhập API key cho máy dịch AI.", parent=self.win)
-            return
+        from .validate import validate
+        problems = validate(cfg, deep=False)
+        if problems:
+            text = "\n".join(f"• {tab}: {msg}" for tab, msg in problems)
+            if not messagebox.askyesno("Cài đặt", f"Có chỗ cài đặt chưa đúng:\n\n{text}\n\nVẫn lưu?",
+                                       parent=self.win):
+                self._mark_problems(problems)
+                return
         self.on_save(cfg)
         self.close()
 

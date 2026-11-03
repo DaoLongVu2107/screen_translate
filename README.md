@@ -24,6 +24,9 @@ Yêu cầu: Windows 10 hoặc 11.
 - Dịch nhanh một lần kiểu Google Lens: khoanh vùng là có bản dịch, kèm nút Copy
 - Nhận dạng chữ bằng Windows OCR có sẵn, hoặc Tesseract
 - Máy dịch: Google Dịch miễn phí, Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
+- Xếp thứ tự nhiều máy dịch: máy đầu bị chặn hay mất mạng thì tự chuyển sang máy kế tiếp
+- Sửa chữ OCR đọc nhầm rồi dịch lại; bảng thay thế lỗi OCR tự sửa những chữ hay đọc nhầm
+- Tự kiểm tra cài đặt sai (thiếu API key, thiếu gói ngôn ngữ OCR, phím tắt trùng...) và chỉ rõ chỗ sai
 - Tự làm sạch lỗi OCR và tách tên người nói, chỉ dịch lời thoại
 - Khung dịch kéo đi tự do, đổi kích thước, có lịch sử các câu trước
 - Chế độ chuột bấm xuyên qua: khung dịch đè lên game mà vẫn click vào game bình thường
@@ -35,6 +38,7 @@ Yêu cầu: Windows 10 hoặc 11.
 - Nhớ vùng dịch theo từng app, kéo cửa sổ đi đâu vùng dịch theo đó, đổi kích thước cửa sổ thì vùng dịch co giãn theo
 - Chỉ dịch khi app đang ở phía trước, thu nhỏ hoặc chuyển cửa sổ thì tự dừng
 - Giao diện Sáng / Tối, tùy chỉnh phông chữ, màu, độ trong suốt
+- Khởi động cùng Windows, proxy, tự báo khi có bản mới
 
 ## Phím tắt
 

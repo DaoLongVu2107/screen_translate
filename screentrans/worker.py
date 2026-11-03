@@ -36,10 +36,7 @@ def _diff(a: Image.Image, b: Image.Image, delta: int = PIXEL_DELTA) -> float:
 MIN_GAP = 1.0          # mac dinh: toi thieu 1 giay giua hai lan goi may dich
 
 
-def _is_rate_limit(e: Exception) -> bool:
-    name = type(e).__name__.lower()
-    return ("toomanyrequests" in name or "ratelimit" in name or "resourceexhausted" in name
-            or getattr(e, "status_code", None) == 429 or getattr(e, "code", None) == 429)
+from .translator import is_rate_limit as _is_rate_limit  # noqa: E402,F401
 
 
 def _same(a, b) -> bool:
@@ -47,12 +44,12 @@ def _same(a, b) -> bool:
     return bool(a and b) and " ".join(a.split()) == " ".join(b.split())
 
 
-def _key(raw: str, lang: str) -> str:
+def _key(raw: str, lang: str, subs=None) -> str:
     """Chu dung de so sanh hai lan doc: da bo ky hieu trang tri (mui ten ▼ nhap nhay...),
     ky tu rac va khac biet dau cach. Khong so gan dung: khac mot chu van la khac."""
     if not raw:
         return ""
-    return prepare(raw, lang, clean=True, speaker=False)[1]
+    return prepare(raw, lang, clean=True, speaker=False, subs=subs)[1]
 
 
 class TranslateWorker(threading.Thread):
@@ -196,7 +193,8 @@ class TranslateWorker(threading.Thread):
             log.warning("OCR cham: %.1fs (vung %dx%d, phong to %.1f). Thu chon vung nho hon "
                         "hoac giam phong to.", took, w, h, scale)
         lang = self.cfg["source_lang"]
-        key = _key(text, lang)
+        subs = self.cfg.get("ocr_substitutions")
+        key = _key(text, lang, subs)
         self._dbg("doc duoc (anh doi %.2f%%, OCR %.2fs): %r", change * 100, took, key[:80])
 
         if not key:                      # vung khong co chu
@@ -212,13 +210,13 @@ class TranslateWorker(threading.Thread):
 
         if not forced:
             # Chu giong het cau vua dich (man hinh dung yen) -> khong gui lai
-            if not key or key == _key(self._last_text, lang):
+            if not key or key == _key(self._last_text, lang, subs):
                 self._candidate = None
                 self._unstable = self._same_reads = 0
                 return
             # Chi dich khi doc N lan lien tiep ra cung mot chu (mac dinh 2): tranh dich tung
             # chu khi game hien chu kieu danh may. Neu chu cu doi mai thi sau vai lan van dich.
-            if key == _key(self._candidate, lang):
+            if key == _key(self._candidate, lang, subs):
                 self._same_reads += 1
             else:
                 self._candidate = text
@@ -251,3 +249,5 @@ class TranslateWorker(threading.Thread):
         self._dbg("da dich (%.2fs): %r", took, translated[:80])
         if translated:
             self.on_result(original, translated)
+            if getattr(translator, "fallback_note", ""):
+                self.on_status("● " + translator.fallback_note)

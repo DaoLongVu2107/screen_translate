@@ -90,15 +90,34 @@ def split_speaker(lines: list[str]):
     return "", lines
 
 
-def prepare(raw: str, lang: str, clean: bool = True, speaker: bool = True):
+def apply_substitutions(text: str, subs) -> str:
+    """Bang thay the loi OCR do nguoi dung tu them: [{"from", "to", "word"}, ...].
+    word = True: chi thay khi la ca mot tu (khong nam giua tu khac)."""
+    for sub in subs or []:
+        frm = sub.get("from") or ""
+        if not frm:
+            continue
+        to = sub.get("to") or ""
+        if sub.get("word"):
+            text = re.sub(rf"(?<!\w){re.escape(frm)}(?!\w)", lambda m: to, text)
+        else:
+            text = text.replace(frm, to)
+    return text
+
+
+def prepare(raw: str, lang: str, clean: bool = True, speaker: bool = True, subs=None):
     """Chu OCR tho (moi dong cach nhau boi \\n) -> (ten nguoi noi, loi thoai da noi dong)."""
     lines = [ln for ln in raw.splitlines() if ln.strip()]
     if clean:
         lines = [c for c in (clean_line(ln, lang) for ln in lines) if c]
+    if subs:
+        lines = [c for c in (apply_substitutions(ln, subs).strip() for ln in lines) if c]
     name = ""
     if speaker:
         name, lines = split_speaker(lines)
     body = join_lines(lines)
+    if subs:
+        body = apply_substitutions(body, subs)   # loi nam vat qua hai dong
     if clean and lang in _LATIN_LANGS:
         body = re.sub(r"\s+([,.!?;:])", r"\1", body)
     return name, body

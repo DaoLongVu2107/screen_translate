@@ -55,6 +55,8 @@ DEFAULTS = {
     "ocr_engine": "windows",          # "windows" hoac "tesseract"
     "tesseract_cmd": "C:/Program Files/Tesseract-OCR/tesseract.exe",
     "translator": "google",           # google | google_cloud | deepl | claude | openai | gemini | grok
+    "translator_chain": ["google"],   # thu tu may dich: may dau loi thi dung may sau
+    "ocr_substitutions": [],          # bang thay the loi OCR: [{"from", "to", "word"}]
     "deepl_api_key": "",
     "google_cloud_api_key": "",
     "ai": {
@@ -101,6 +103,9 @@ DEFAULTS = {
         "subtitle_geom": None,        # vi tri khung phu de nguoi dung da keo (toa do man hinh)
     },
     "ui_theme": "light",              # giao dien cua so cai dat: light | dark
+    "proxy": "",                      # vd. http://127.0.0.1:8080, de trong = khong dung
+    "check_updates": True,            # tu kiem tra ban moi khi mo app (toi da 1 lan/ngay)
+    "last_update_check": "",
     "remember_games": True,           # nho vung dich theo tung game (theo ten file exe)
     "auto_start_games": True,         # mo game da luu vung -> tu bat dich
     "pause_when_unfocused": True,     # chi dich khi game dang o phia truoc
@@ -140,7 +145,11 @@ def load() -> dict:
         return copy.deepcopy(DEFAULTS)
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
-            return _merge(DEFAULTS, json.load(f))
+            user = json.load(f)
+        cfg = _merge(DEFAULTS, user)
+        if "translator_chain" not in user:          # cau hinh ban cu: giu may dich dang dung
+            cfg["translator_chain"] = [cfg.get("translator", "google")]
+        return cfg
     except Exception:
         log.exception("config.json loi, dung cau hinh mac dinh")
         return copy.deepcopy(DEFAULTS)

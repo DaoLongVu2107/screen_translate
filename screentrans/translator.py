@@ -1,8 +1,11 @@
 """May dich, co cache de khong goi lai cung 1 cau."""
+import logging
 import re
 from collections import OrderedDict, deque
 
 from .ai_translator import PROVIDERS as AI_PROVIDERS, AiTranslator
+
+log = logging.getLogger(__name__)
 
 _EN_NAMES = {"en": "English", "ja": "Japanese", "zh-CN": "Simplified Chinese",
              "zh-TW": "Traditional Chinese", "ko": "Korean", "ru": "Russian", "fr": "French",
@@ -128,40 +131,77 @@ class GoogleFreeTranslator:
         raise ApiError(0, f"Không kết nối được tới Google Dịch ({detail}). Kiểm tra mạng.")
 
 
+ENGINE_NAMES = {"google": "Google Dịch", "google_cloud": "Google Cloud", "deepl": "DeepL",
+                **{k: v[0] for k, v in AI_PROVIDERS.items()}}
+
+
+def is_rate_limit(e: Exception) -> bool:
+    name = type(e).__name__.lower()
+    return ("toomanyrequests" in name or "ratelimit" in name or "resourceexhausted" in name
+            or getattr(e, "status_code", None) == 429 or getattr(e, "code", None) == 429)
+
+
+def make_engine(engine: str, cfg: dict):
+    """Tao may dich theo ten. Thieu API key... thi bao loi ngay."""
+    from .config import lang_info
+    src, dst = lang_info(cfg["source_lang"])[3], lang_info(cfg["target_lang"])[3]
+    if engine in AI_PROVIDERS:
+        ai = cfg["ai"][engine]
+        return AiTranslator(engine, ai["api_key"], ai["model"],
+                            _english_name(cfg["source_lang"]), _english_name(cfg["target_lang"]),
+                            notes=cfg.get("ai_notes", ""),
+                            context_lines=int(cfg.get("ai_context_lines", 3)))
+    if engine == "google_cloud":
+        return GoogleCloudTranslator(cfg.get("google_cloud_api_key", ""), src, dst)
+    if engine == "deepl":
+        if not cfg.get("deepl_api_key"):
+            raise ValueError("Chưa nhập DeepL API key.")
+        from deep_translator import DeeplTranslator
+        return DeeplTranslator(api_key=cfg["deepl_api_key"], source=src.split("-")[0],
+                               target=dst.split("-")[0], use_free_api=True)
+    return GoogleFreeTranslator(src, dst)
+
+
+def engine_chain(cfg: dict) -> list:
+    chain = [e for e in (cfg.get("translator_chain") or []) if e in ENGINE_NAMES]
+    return list(dict.fromkeys(chain or [cfg.get("translator", "google")]))
+
+
 class Translator:
+    """Dich qua chuoi may dich theo thu tu: may dau loi (bi chan, mat mang, sai key...)
+    thi tu dung may tiep theo; may vua bi chan duoc tam bo qua mot luc."""
+
     def __init__(self, cfg: dict):
-        from .config import lang_info
-        src, dst = lang_info(cfg["source_lang"])[3], lang_info(cfg["target_lang"])[3]
+        import time
+        self._time = time
         self._lang = cfg["source_lang"]
         self._clean = cfg.get("clean_ocr", True)
         self._speaker = cfg.get("split_speaker", True)
+        self._subs = cfg.get("ocr_substitutions") or []
         n = max(0, min(5, int(cfg.get("google_context_lines", 0))))
         self._history: deque[str] = deque(maxlen=n or 1)
         self._context_n = n
-        engine = cfg["translator"]
-        if engine in AI_PROVIDERS:
-            ai = cfg["ai"][engine]
-            self._impl = AiTranslator(engine, ai["api_key"], ai["model"],
-                                      _english_name(cfg["source_lang"]),
-                                      _english_name(cfg["target_lang"]),
-                                      notes=cfg.get("ai_notes", ""),
-                                      context_lines=int(cfg.get("ai_context_lines", 3)))
-        elif engine == "google_cloud":
-            self._impl = GoogleCloudTranslator(cfg.get("google_cloud_api_key", ""), src, dst)
-        elif engine == "deepl":
-            src, dst = src.split("-")[0], dst.split("-")[0]
-            from deep_translator import DeeplTranslator
-            self._impl = DeeplTranslator(api_key=cfg["deepl_api_key"], source=src,
-                                         target=dst, use_free_api=True)
-        else:
-            self._impl = GoogleFreeTranslator(src, dst)
+        self._pause = max(5.0, float(cfg.get("block_pause", 30)))
+        self._chain, skipped = [], []
+        for eng in engine_chain(cfg):
+            try:
+                self._chain.append({"id": eng, "impl": make_engine(eng, cfg), "until": 0.0})
+            except Exception as e:
+                log.warning("Bo qua may dich %s: %s", eng, e)
+                skipped.append(f"{ENGINE_NAMES.get(eng, eng)}: {e}")
+        if not self._chain:
+            raise ValueError("Không có máy dịch nào dùng được. " + "; ".join(skipped))
+        self._impl = self._chain[0]["impl"]
+        self.last_engine = None
+        self.fallback_note = ""
         self._cache: OrderedDict[str, str] = OrderedDict()
 
     def translate_dialogue(self, raw: str):
         """Chu OCR tho -> (chu goc de hien thi, ban dich). Lam sach, tach ten nguoi noi,
         chi dich loi thoai va giu nguyen ten."""
         from .textproc import prepare
-        name, body = prepare(raw, self._lang, clean=self._clean, speaker=self._speaker)
+        name, body = prepare(raw, self._lang, clean=self._clean, speaker=self._speaker,
+                             subs=self._subs)
         if not body:
             return raw, ""
         tr = self.translate(body)
@@ -170,14 +210,40 @@ class Translator:
         return body, tr
 
     def translate(self, text: str) -> str:
+        self.fallback_note = ""
         if text in self._cache:
             self._cache.move_to_end(text)
             self._history.append(text)
             return self._cache[text]
-        if self._context_n and self._history and isinstance(self._impl, GoogleFreeTranslator):
-            result = self._translate_with_context(text)
-        else:
-            result = self._impl.translate(text[:4900]) or ""
+        now = self._time.monotonic()
+        ready = [e for e in self._chain if e["until"] <= now]
+        errors = []
+        result = None
+        for i, entry in enumerate(ready or self._chain):
+            self._impl = entry["impl"]
+            try:
+                if self._context_n and self._history and isinstance(self._impl, GoogleFreeTranslator):
+                    result = self._translate_with_context(text)
+                else:
+                    result = self._impl.translate(text[:4900]) or ""
+                self.last_engine = entry["id"]
+                if entry is not self._chain[0]:
+                    failed = ", ".join(ENGINE_NAMES.get(e, e) for e, _ in errors) or \
+                        ENGINE_NAMES.get(self._chain[0]["id"], "")
+                    self.fallback_note = f"dịch bằng {ENGINE_NAMES.get(entry['id'])} ({failed} đang lỗi)"
+                break
+            except Exception as e:
+                errors.append((entry["id"], e))
+                entry["until"] = now + self._pause       # tam bo qua may nay mot luc
+                if len(self._chain) > 1:
+                    log.warning("May dich %s loi (%s), thu may tiep theo", entry["id"], e)
+        if result is None:
+            if errors and all(is_rate_limit(e) for _, e in errors):
+                raise ApiError(429, "; ".join(f"{ENGINE_NAMES.get(n, n)}: {e}" for n, e in errors))
+            if len(errors) == 1:
+                raise errors[0][1]
+            raise RuntimeError("Mọi máy dịch đều lỗi: " +
+                               "; ".join(f"{ENGINE_NAMES.get(n, n)}: {e}" for n, e in errors))
         self._history.append(text)
         self._cache[text] = result
         if len(self._cache) > 500:

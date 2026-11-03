@@ -6,7 +6,7 @@ from .winutil import exclude_from_capture, round_corners
 
 
 class QuickPopup:
-    def __init__(self, root, cfg: dict, region, on_close=None):
+    def __init__(self, root, cfg: dict, region, on_close=None, on_edit=None):
         o = cfg["overlay"]
         self.on_close = on_close
         fg, bg = o["fg"], o["bg"]
@@ -30,6 +30,12 @@ class QuickPopup:
         close.pack(side="right")
         close.bind("<Button-1>", lambda e: self.close())
         bar.bind("<Button-1>", lambda e: "break")
+        self.original = ""
+        if on_edit:
+            edit = tk.Label(bar, text="Sửa", font=(family, 8), fg="#9a9a9a", bg=bar_bg, padx=8,
+                            cursor="hand2")
+            edit.pack(side="right")
+            edit.bind("<Button-1>", lambda e: (on_edit(self), "break")[1])
         self.copy_btn = tk.Label(bar, text="Copy", font=(family, 8), fg="#9a9a9a", bg=bar_bg,
                                  padx=8, cursor="hand2")
         self.copy_btn.pack(side="right")
@@ -65,6 +71,7 @@ class QuickPopup:
         if not self.win.winfo_exists():
             return
         self.translation = translated
+        self.original = original
         self.orig.configure(text=original)
         self.text.configure(text=translated or "Không đọc được chữ trong vùng này.")
         self.win.geometry("")          # tinh lai chieu cao theo noi dung
