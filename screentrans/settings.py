@@ -122,10 +122,18 @@ class SettingsWindow:
                   ttk.Spinbox(f, from_=100, to=5000, increment=100, textvariable=self.interval, width=8),
                   "Tính bằng mili giây. Càng nhỏ thì dịch càng nhanh nhưng tốn CPU hơn.")
 
-        self.sensitivity = tk.DoubleVar(value=self.cfg["change_threshold"] * 100)
+        self.sensitivity = tk.DoubleVar(value=round(self.cfg.get("change_pixels", 0.0001) * 100, 3))
         self._row(f, 4, "Ngưỡng thay đổi",
-                  ttk.Spinbox(f, from_=0.5, to=30, increment=0.5, textvariable=self.sensitivity, width=8),
-                  "Tính theo %. Tăng lên nếu nền có video, hiệu ứng động làm app dịch liên tục.")
+                  ttk.Spinbox(f, from_=0, to=5, increment=0.01, textvariable=self.sensitivity,
+                              width=8, format="%.3f"),
+                  "Phần trăm điểm ảnh trong vùng phải đổi thì mới đọc lại chữ, mặc định 0.01. "
+                  "Để thấp cho chắc không sót câu; chỉ tăng nếu nền động làm máy chạy nặng.")
+
+        self.debug_log = tk.BooleanVar(value=self.cfg.get("debug_log", False))
+        ttk.Checkbutton(f, text="Ghi log chi tiết để tìm lỗi", variable=self.debug_log
+                        ).grid(row=8, column=1, sticky="w", pady=(6, 0))
+        ttk.Label(f, text="Ghi từng lần đọc chữ và dịch vào app.log. Chỉ bật khi cần tìm lỗi.",
+                  foreground=theme.palette()["hint"], wraplength=440).grid(row=9, column=1, sticky="w")
 
         self.upscale = tk.DoubleVar(value=self.cfg["upscale"])
         self._row(f, 6, "Phóng to ảnh trước khi đọc",
@@ -500,7 +508,8 @@ class SettingsWindow:
         c["ocr_engine"] = self.engine.get()
         c["tesseract_cmd"] = self.tess.get().strip()
         c["interval_ms"] = int(self.interval.get())
-        c["change_threshold"] = float(self.sensitivity.get()) / 100
+        c["change_pixels"] = max(0.0, float(self.sensitivity.get())) / 100
+        c["debug_log"] = bool(self.debug_log.get())
         c["upscale"] = float(self.upscale.get())
         c["translator"] = self.translator.get()
         c["deepl_api_key"] = self.deepl_key.get().strip()

@@ -64,7 +64,8 @@ DEFAULTS = {
     "ai_notes": "",                   # bang ten rieng / van phong cho AI
     "ai_context_lines": 3,            # so cau truoc gui kem de AI hieu ngu canh
     "interval_ms": 600,               # chu ky chup man hinh khi dich lien tuc
-    "change_threshold": 0.02,         # muc thay doi anh toi thieu de OCR lai (0..1)
+    "change_pixels": 0.0001,          # ty le diem anh phai doi moi doc lai chu (0.01%)
+    "debug_log": False,               # ghi log chi tiet tung lan doc / dich de tim loi
     "upscale": 2.0,                   # phong to anh truoc OCR, giup doc chu nho
     "overlay": {
         "position": "below",          # below | above | over

@@ -36,7 +36,7 @@ class GoogleCloudTranslator:
         body = {"q": text, "target": self.target, "format": "text"}
         if self.source != "auto":
             body["source"] = self.source
-        r = self._session.post(self.URL, params={"key": self.key}, json=body, timeout=20)
+        r = self._session.post(self.URL, params={"key": self.key}, json=body, timeout=10)
         if r.status_code != 200:
             try:
                 msg = r.json()["error"]["message"]
@@ -97,9 +97,9 @@ class GoogleFreeTranslator:
     def _try(self, url: str, text: str):
         try:
             r = self._session.post(f"{url}&sl={self.source}&tl={self.target}", data={"q": text},
-                                   timeout=10, allow_redirects=False)
+                                   timeout=5, allow_redirects=False)
         except self._requests.RequestException as e:
-            return None, str(e)
+            return None, f"không kết nối được: {type(e).__name__}"
         if r.status_code != 200:     # 429, hoac 302 sang trang xac minh "sorry"
             return None, f"HTTP {r.status_code}"
         try:
@@ -117,10 +117,15 @@ class GoogleFreeTranslator:
                 if result:
                     return result
                 errors.append(err)
-            self._new_session()          # xoa cookie roi thu lai mot lan
+            if not any(e.startswith("HTTP") for e in errors):
+                break                    # mat mang: thu lai cung vo ich, bao loi ngay
+            self._new_session()          # bi chan: xoa cookie roi thu lai mot lan
             if attempt == 0:
                 time.sleep(0.7)
-        raise ApiError(429, "Google tạm chặn (" + ", ".join(dict.fromkeys(errors)) + ")")
+        detail = ", ".join(dict.fromkeys(errors))
+        if any(e.startswith("HTTP") for e in errors):
+            raise ApiError(429, f"Google tạm chặn ({detail})")
+        raise ApiError(0, f"Không kết nối được tới Google Dịch ({detail}). Kiểm tra mạng.")
 
 
 class Translator:
