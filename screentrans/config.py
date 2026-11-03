@@ -68,6 +68,11 @@ DEFAULTS = {
     "interval_ms": 600,               # chu ky chup man hinh khi dich lien tuc
     "change_pixels": 0.0001,          # ty le diem anh phai doi moi doc lai chu (0.01%)
     "debug_log": False,               # ghi log chi tiet tung lan doc / dich de tim loi
+    "pixel_delta_pct": 11,            # diem anh sang/toi hon bao nhieu % moi tinh la doi
+    "confirm_reads": 2,               # doc bao nhieu lan giong nhau moi dich (1 = dich ngay)
+    "unstable_max": 5,                # doc bao nhieu lan khac nhau lien tiep thi dich luon (0 = tat)
+    "block_pause": 30,                # bi may dich chan thi nghi bao nhieu giay (gap doi moi lan)
+    "history_max": 200,               # so cau giu trong lich su khung dich
     "upscale": 2.0,                   # phong to anh truoc OCR, giup doc chu nho
     "overlay": {
         "position": "below",          # below | above | over

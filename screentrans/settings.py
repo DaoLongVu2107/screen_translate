@@ -71,6 +71,7 @@ class SettingsWindow:
         self._tab_translator(self._tab(nb, "Dịch"))
         self._tab_appearance(self._tab(nb, "Giao diện"))
         self._tab_games(self._tab(nb, "App"))
+        self._tab_advanced(self._tab(nb, "Nâng cao"))
         self._tab_hotkeys(self._tab(nb, "Phím tắt"))
 
         bar = ttk.Frame(w)
@@ -121,19 +122,6 @@ class SettingsWindow:
         self._row(f, 2, "Tần suất quét",
                   ttk.Spinbox(f, from_=100, to=5000, increment=100, textvariable=self.interval, width=8),
                   "Tính bằng mili giây. Càng nhỏ thì dịch càng nhanh nhưng tốn CPU hơn.")
-
-        self.sensitivity = tk.DoubleVar(value=round(self.cfg.get("change_pixels", 0.0001) * 100, 3))
-        self._row(f, 4, "Ngưỡng thay đổi",
-                  ttk.Spinbox(f, from_=0, to=5, increment=0.01, textvariable=self.sensitivity,
-                              width=8, format="%.3f"),
-                  "Phần trăm điểm ảnh trong vùng phải đổi thì mới đọc lại chữ, mặc định 0.01. "
-                  "Để thấp cho chắc không sót câu; chỉ tăng nếu nền động làm máy chạy nặng.")
-
-        self.debug_log = tk.BooleanVar(value=self.cfg.get("debug_log", False))
-        ttk.Checkbutton(f, text="Ghi log chi tiết để tìm lỗi", variable=self.debug_log
-                        ).grid(row=8, column=1, sticky="w", pady=(6, 0))
-        ttk.Label(f, text="Ghi từng lần đọc chữ và dịch vào app.log. Chỉ bật khi cần tìm lỗi.",
-                  foreground=theme.palette()["hint"], wraplength=440).grid(row=9, column=1, sticky="w")
 
         self.upscale = tk.DoubleVar(value=self.cfg["upscale"])
         self._row(f, 6, "Phóng to ảnh trước khi đọc",
@@ -437,6 +425,49 @@ class SettingsWindow:
             self._deleted_profiles.add(exe)
             self._fill_profiles()
 
+    def _num(self, f, row, label, key, default, lo, hi, step, hint, fmt=None, scale=1.0):
+        """Mot dong cai dat so: luu bien vao self._nums de doc lai khi luu."""
+        is_int = isinstance(default, int) and scale == 1.0
+        val = self.cfg.get(key, default) * scale
+        var = tk.IntVar(value=int(round(val))) if is_int else tk.DoubleVar(value=round(val, 4))
+        spin = ttk.Spinbox(f, from_=lo, to=hi, increment=step, textvariable=var, width=8,
+                           **({"format": fmt} if fmt else {}))
+        shown = f"{default * scale:g}"
+        self._row(f, row, label, spin, f"{hint} Mặc định: {shown}.")
+        self._nums[key] = (var, scale, lo, hi, is_int)
+
+    def _tab_advanced(self, f):
+        self._nums = {}
+        self._num(f, 0, "Ngưỡng thay đổi", "change_pixels", 0.0001, 0, 5, 0.01,
+                  "Phần trăm điểm ảnh trong vùng phải đổi thì mới đọc lại chữ. Để thấp cho chắc "
+                  "không sót câu; chỉ tăng nếu nền động làm máy chạy nặng.", fmt="%.3f", scale=100)
+        self._num(f, 2, "Mức đổi một điểm ảnh", "pixel_delta_pct", 11, 1, 60, 1,
+                  "Một điểm ảnh sáng hoặc tối đi bao nhiêu phần trăm thì mới tính là đổi. Tăng nếu "
+                  "nhiễu hình làm app đọc lại liên tục.")
+        self._num(f, 4, "Số lần đọc giống nhau", "confirm_reads", 2, 1, 5, 1,
+                  "Đọc ra cùng một chữ bấy nhiêu lần liên tiếp mới dịch, tránh dịch chữ đang hiện "
+                  "dần. 1 là dịch ngay.")
+        self._num(f, 6, "Số lần đọc khác nhau", "unstable_max", 5, 0, 20, 1,
+                  "Chữ đổi liên tục bấy nhiêu lần thì dịch luôn bản mới nhất. 0 là tắt.")
+        self._num(f, 8, "Nghỉ khi bị chặn", "block_pause", 30, 5, 600, 5,
+                  "Số giây tạm nghỉ khi máy dịch báo gửi quá nhiều, lần sau gấp đôi.")
+        self._num(f, 10, "Số câu trong lịch sử", "history_max", 200, 10, 2000, 10,
+                  "Số câu giữ lại trong khung dịch để lăn chuột xem lại.")
+
+        self.debug_log = tk.BooleanVar(value=self.cfg.get("debug_log", False))
+        ttk.Checkbutton(f, text="Ghi log chi tiết để tìm lỗi", variable=self.debug_log
+                        ).grid(row=12, column=1, sticky="w", pady=(10, 0))
+        ttk.Label(f, text="Ghi từng lần đọc chữ và dịch vào app.log. Chỉ bật khi cần tìm lỗi.",
+                  foreground=theme.palette()["hint"], wraplength=440).grid(row=13, column=1, sticky="w")
+        ttk.Button(f, text="Đặt lại mục này về mặc định", command=self._reset_advanced
+                   ).grid(row=14, column=1, sticky="w", pady=(12, 0))
+
+    def _reset_advanced(self):
+        for key, (var, scale, _lo, _hi, is_int) in self._nums.items():
+            v = DEFAULTS[key] * scale
+            var.set(int(round(v)) if is_int else round(v, 4))
+        self.debug_log.set(DEFAULTS["debug_log"])
+
     def _tab_hotkeys(self, f):
         self.hk_vars = {}
         for r, (key, label) in enumerate(HOTKEY_NAMES.items()):
@@ -508,7 +539,9 @@ class SettingsWindow:
         c["ocr_engine"] = self.engine.get()
         c["tesseract_cmd"] = self.tess.get().strip()
         c["interval_ms"] = int(self.interval.get())
-        c["change_pixels"] = max(0.0, float(self.sensitivity.get())) / 100
+        for key, (var, scale, lo, hi, is_int) in self._nums.items():
+            v = min(hi, max(lo, float(var.get()))) / scale
+            c[key] = int(round(v)) if is_int else v
         c["debug_log"] = bool(self.debug_log.get())
         c["upscale"] = float(self.upscale.get())
         c["translator"] = self.translator.get()

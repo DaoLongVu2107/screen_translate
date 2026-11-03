@@ -25,6 +25,7 @@ class Overlay:
         self.on_menu = on_menu               # on_menu(command_name)
         self.on_geometry = on_geometry       # goi khi nguoi dung keo/doi kich thuoc xong
         self.entries: list[tuple[str, str]] = []
+        self.max_entries = max(10, int(cfg.get("history_max", MAX_ENTRIES)))
         self.visible = False
 
         fg, bg = o["fg"], o["bg"]
@@ -189,8 +190,8 @@ class Overlay:
         if self.cfg.get("show_original") and original:
             t.insert("end", original + "\n", ("orig",))
         t.insert("end", translated, ("new",))
-        if len(self.entries) > MAX_ENTRIES:       # bo bot lich su qua cu
-            self.entries = self.entries[-MAX_ENTRIES:]
+        if len(self.entries) > self.max_entries:   # bo bot lich su qua cu
+            self.entries = self.entries[-self.max_entries:]
             self._rerender()
         t.configure(state="disabled")
         if at_bottom:

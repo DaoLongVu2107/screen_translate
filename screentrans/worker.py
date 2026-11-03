@@ -14,8 +14,8 @@ log = logging.getLogger(__name__)
 
 
 SIG_W = 320             # anh thu nho de so sanh thay doi
-PIXEL_DELTA = 28        # diem anh doi sang hon / toi hon muc nay moi tinh la "doi"
-UNSTABLE_MAX = 5        # doc 5 lan lien tiep van khac nhau -> dich luon ban moi nhat
+PIXEL_DELTA = 28        # mac dinh: diem anh doi sang/toi hon ~11% moi tinh la "doi"
+UNSTABLE_MAX = 5        # mac dinh: doc 5 lan lien tiep van khac nhau -> dich luon ban moi nhat
 
 
 def _signature(img: Image.Image) -> Image.Image:
@@ -23,13 +23,13 @@ def _signature(img: Image.Image) -> Image.Image:
     return img.convert("L").resize((SIG_W, h), Image.BILINEAR)
 
 
-def _diff(a: Image.Image, b: Image.Image) -> float:
+def _diff(a: Image.Image, b: Image.Image, delta: int = PIXEL_DELTA) -> float:
     """Ty le diem anh thay doi ro rang (0..1). Khong lay trung binh ca vung: cau thoai
     chi chiem mot phan nho cua vung nen trung binh rat nho du da doi sang cau khac."""
     if a.size != b.size:
         return 1.0
     hist = ImageChops.difference(a, b).histogram()
-    changed = sum(hist[PIXEL_DELTA:])
+    changed = sum(hist[max(1, min(255, delta)):])
     return changed / max(1, a.width * a.height)
 
 
@@ -65,6 +65,7 @@ class TranslateWorker(threading.Thread):
         self.gate = gate or (lambda: True)   # tra ve False -> khong chup / khong dich luc nay
         self._candidate = None         # chu OCR vua doc, cho lan doc sau xac nhan
         self._unstable = 0             # so lan doc lien tiep ra chu khac nhau
+        self._same_reads = 0           # so lan doc lien tiep ra cung chu dang cho
         self._idle_logged = False
         self._last_call = 0.0
         self._cooldown_until = 0.0
@@ -147,7 +148,8 @@ class TranslateWorker(threading.Thread):
                 except Exception as e:
                     if _is_rate_limit(e):
                         # bi chan vi goi qua nhieu: nghi 30s, 60s, 120s... (toi da 5 phut)
-                        self._backoff = min(300.0, self._backoff * 2 or 30.0)
+                        base = max(5.0, float(self.cfg.get("block_pause", 30)))
+                        self._backoff = min(max(300.0, base), self._backoff * 2 or base)
                         self._cooldown_until = time.monotonic() + self._backoff
                         self._last_text = self._last_sig = None
                         log.warning("May dich bao goi qua nhieu, nghi %ss", self._backoff)
@@ -168,7 +170,8 @@ class TranslateWorker(threading.Thread):
 
         # Anh khong doi thi bo qua, tru khi dang cho xac nhan chu moi
         sig = _signature(img)
-        change = 1.0 if self._last_sig is None else _diff(sig, self._last_sig)
+        delta = round(float(self.cfg.get("pixel_delta_pct", 11)) * 255 / 100)
+        change = 1.0 if self._last_sig is None else _diff(sig, self._last_sig, delta)
         self._last_sig = sig
         threshold = float(self.cfg.get("change_pixels", 0.0001))
         if change < threshold and not forced and self._candidate is None:
@@ -195,14 +198,20 @@ class TranslateWorker(threading.Thread):
             # Chu giong het cau vua dich (man hinh dung yen) -> khong gui lai
             if not key or key == _key(self._last_text, lang):
                 self._candidate = None
-                self._unstable = 0
+                self._unstable = self._same_reads = 0
                 return
-            # Chi dich khi hai lan doc lien tiep ra cung mot chu: tranh dich tung chu khi
-            # game hien chu kieu danh may. Neu chu cu doi mai thi sau vai lan van dich.
-            if key != _key(self._candidate, lang):
+            # Chi dich khi doc N lan lien tiep ra cung mot chu (mac dinh 2): tranh dich tung
+            # chu khi game hien chu kieu danh may. Neu chu cu doi mai thi sau vai lan van dich.
+            if key == _key(self._candidate, lang):
+                self._same_reads += 1
+            else:
                 self._candidate = text
+                self._same_reads = 1
                 self._unstable += 1
-                if self._unstable < UNSTABLE_MAX:
+            need = max(1, int(self.cfg.get("confirm_reads", 2)))
+            if self._same_reads < need:
+                limit = int(self.cfg.get("unstable_max", UNSTABLE_MAX))
+                if not limit or self._unstable < limit:
                     return
                 log.info("Chu doi lien tuc %d lan, dich luon ban moi nhat", self._unstable)
         if not key:
@@ -215,7 +224,7 @@ class TranslateWorker(threading.Thread):
         if wait > 0:
             time.sleep(wait)
         self._candidate = None
-        self._unstable = 0
+        self._unstable = self._same_reads = 0
         self._last_text = text
         self._last_call = time.monotonic()
         t0 = time.monotonic()
