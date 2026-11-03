@@ -76,6 +76,10 @@ DEFAULTS = {
     "block_pause": 30,                # bi may dich chan thi nghi bao nhieu giay (gap doi moi lan)
     "history_max": 200,               # so cau giu trong lich su khung dich
     "word_lookup": True,              # re chuot vao chu goc de tra tung tu
+    "ocr_filter": {                   # loc anh truoc khi OCR (xem imgfilter.py)
+        "text_color_on": False, "text_color": "#FFFFFF", "color_tolerance": 25,
+        "autocontrast": False, "invert": False, "sharpen": False, "threshold": 0,
+    },
     "upscale": 2.0,                   # phong to anh truoc OCR, giup doc chu nho
     "overlay": {
         "position": "below",          # below | above | over

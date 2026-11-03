@@ -6,7 +6,7 @@ import time
 import mss
 from PIL import Image, ImageChops
 
-from . import ocr as ocr_mod
+from . import imgfilter, ocr as ocr_mod
 from .textproc import prepare
 from .translator import Translator
 
@@ -184,6 +184,7 @@ class TranslateWorker(threading.Thread):
         scale = float(self.cfg.get("upscale", 1.0))
         if scale > 1.0:
             img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        img = imgfilter.apply(img, self.cfg.get("ocr_filter"))
         t0 = time.monotonic()
         text = engine.recognize(img).strip()
         took = time.monotonic() - t0

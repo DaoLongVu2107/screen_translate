@@ -328,6 +328,30 @@ class App:
         self.overlay.set_status("↻ đang dịch lại…")
         self.worker.translate_once()
 
+    # --- ho tro cho khung xem truoc trong cai dat ---
+    def _capture_region(self):
+        if not self.region:
+            return None
+        import mss
+        from PIL import Image
+        left, top, w, h = self.region
+        with mss.mss() as sct:
+            shot = sct.grab({"left": left, "top": top, "width": w, "height": h})
+        return Image.frombytes("RGB", shot.size, shot.rgb)
+
+    def _ocr_async(self, img, cfg, callback):
+        def work():
+            from . import ocr as ocr_mod
+            try:
+                text = ocr_mod.create(cfg).recognize(img).strip()
+            except Exception as e:
+                text = f"Lỗi OCR: {e}"
+            self.post("call", callback, text)
+        threading.Thread(target=work, daemon=True).start()
+
+    def cmd_call(self, fn, *args):
+        fn(*args)
+
     # --- tra tung tu ---
     def _lookup_word(self, word, callback):
         cfg = self.cfg
@@ -411,6 +435,8 @@ class App:
                 scale = float(cfg.get("upscale", 1.0))
                 if scale > 1.0:
                     img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                from . import imgfilter
+                img = imgfilter.apply(img, cfg.get("ocr_filter"))
                 raw = ocr_mod.create(cfg).recognize(img).strip()
                 if not raw:
                     self.post("quick_result", popup, "", "")
@@ -482,7 +508,9 @@ class App:
             return
         self.settings = SettingsWindow(self.root, self.cfg, on_save=self.apply_config,
                                        pause_hotkeys=self.unregister_hotkeys,
-                                       resume_hotkeys=self.register_hotkeys)
+                                       resume_hotkeys=self.register_hotkeys,
+                                       hooks={"capture": self._capture_region,
+                                              "ocr": self._ocr_async})
 
     def apply_config(self, cfg):
         """Luu cai dat va ap dung ngay, khong can khoi dong lai."""

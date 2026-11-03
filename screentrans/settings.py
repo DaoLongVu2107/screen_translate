@@ -44,7 +44,8 @@ class _Choice:
 
 
 class SettingsWindow:
-    def __init__(self, root, cfg: dict, on_save, pause_hotkeys, resume_hotkeys):
+    def __init__(self, root, cfg: dict, on_save, pause_hotkeys, resume_hotkeys, hooks=None):
+        self.hooks = hooks or {}          # capture() -> anh vung dich; ocr(anh, cfg, callback)
         self.cfg = copy.deepcopy(cfg)
         self.on_save = on_save
         self.pause_hotkeys = pause_hotkeys
@@ -71,6 +72,7 @@ class SettingsWindow:
         self._tab_translator(self._tab(nb, "Dịch"))
         self._tab_appearance(self._tab(nb, "Giao diện"))
         self._tab_games(self._tab(nb, "App"))
+        self._tab_filter(self._tab(nb, "Lọc ảnh"))
         self._tab_advanced(self._tab(nb, "Nâng cao"))
         self._tab_hotkeys(self._tab(nb, "Phím tắt"))
 
@@ -440,6 +442,140 @@ class SettingsWindow:
         self._row(f, row, label, spin, hint)
         self._nums[key] = (var, scale, lo, hi, is_int)
 
+    # --- loc anh truoc OCR + xem truoc ---
+    def _tab_filter(self, f):
+        from . import imgfilter
+        fc = {**imgfilter.DEFAULT, **self.cfg.get("ocr_filter", {})}
+        self.f_color_on = tk.BooleanVar(value=fc["text_color_on"])
+        self.f_color = tk.StringVar(value=fc["text_color"])
+        self.f_tol = tk.IntVar(value=int(fc["color_tolerance"]))
+        self.f_contrast = tk.BooleanVar(value=fc["autocontrast"])
+        self.f_invert = tk.BooleanVar(value=fc["invert"])
+        self.f_sharpen = tk.BooleanVar(value=fc["sharpen"])
+        self.f_threshold = tk.IntVar(value=int(fc["threshold"]))
+
+        row = ttk.Frame(f)
+        ttk.Checkbutton(row, text="Chỉ giữ chữ có màu", variable=self.f_color_on).pack(side="left")
+        self._f_color_btn = self._color_button(row, self.f_color)
+        self._f_color_btn.configure(width=6)
+        self._f_color_btn.pack(side="left", padx=8)
+        self._row(f, 0, "Lọc theo màu chữ", row,
+                  "Bỏ hết nền, chỉ giữ chữ đúng màu này. Bấm vào ảnh gốc bên dưới để lấy màu chữ.")
+        self._row(f, 2, "Độ lệch màu", ttk.Spinbox(f, from_=1, to=100, textvariable=self.f_tol, width=8),
+                  "Phần trăm lệch so với màu chữ vẫn được giữ. Tăng nếu chữ bị mất nét.")
+        opts = ttk.Frame(f)
+        for var, text in ((self.f_contrast, "Tăng tương phản"), (self.f_invert, "Đảo màu"),
+                          (self.f_sharpen, "Làm nét")):
+            ttk.Checkbutton(opts, text=text, variable=var).pack(side="left", padx=(0, 14))
+        self._row(f, 4, "Xử lý thêm", opts)
+        self._row(f, 5, "Chuyển đen trắng",
+                  ttk.Spinbox(f, from_=0, to=100, textvariable=self.f_threshold, width=8),
+                  "Ngưỡng sáng tính theo %, điểm sáng hơn thành trắng, tối hơn thành đen. 0 là tắt.")
+
+        bar = ttk.Frame(f)
+        bar.grid(row=7, column=0, columnspan=2, sticky="we", pady=(10, 4))
+        ttk.Button(bar, text="Chụp vùng dịch để xem trước", command=self._preview_capture).pack(side="left")
+        self.f_status = ttk.Label(bar, text="", foreground=theme.palette()["hint"])
+        self.f_status.pack(side="left", padx=10)
+        prev = ttk.Frame(f)
+        prev.grid(row=8, column=0, columnspan=2, sticky="we")
+        ttk.Label(prev, text="Ảnh gốc").grid(row=0, column=0, sticky="w")
+        self.f_orig = tk.Label(prev, bg=theme.palette()["field"], cursor="crosshair")
+        self.f_orig.grid(row=1, column=0, sticky="w", pady=(2, 8))
+        self.f_orig.bind("<Button-1>", self._preview_pick_color)
+        ttk.Label(prev, text="Sau khi lọc").grid(row=2, column=0, sticky="w")
+        self.f_out = tk.Label(prev, bg=theme.palette()["field"])
+        self.f_out.grid(row=3, column=0, sticky="w", pady=(2, 8))
+        self.f_text = ttk.Label(prev, text="", wraplength=600, justify="left")
+        self.f_text.grid(row=4, column=0, sticky="w")
+        self._prev_img = None
+        self._prev_job = None
+        for var in (self.f_color_on, self.f_color, self.f_tol, self.f_contrast, self.f_invert,
+                    self.f_sharpen, self.f_threshold):
+            var.trace_add("write", lambda *a: self._preview_schedule())
+
+    def _filter_values(self) -> dict:
+        def num(var, lo, hi):
+            try:
+                return max(lo, min(hi, int(var.get())))
+            except (tk.TclError, ValueError):
+                return lo
+        return {"text_color_on": bool(self.f_color_on.get()), "text_color": self.f_color.get(),
+                "color_tolerance": num(self.f_tol, 1, 100), "autocontrast": bool(self.f_contrast.get()),
+                "invert": bool(self.f_invert.get()), "sharpen": bool(self.f_sharpen.get()),
+                "threshold": num(self.f_threshold, 0, 100)}
+
+    def _preview_capture(self):
+        if "capture" not in self.hooks:
+            return
+        self.win.withdraw()               # an cua so cai dat de khong chup de len vung dich
+
+        def grab():
+            img = self.hooks["capture"]()
+            self.win.deiconify()
+            self.win.lift()
+            if img is None:
+                self.f_status.configure(text="Chưa có vùng dịch. Bấm phím chọn vùng trước.")
+                return
+            self._prev_img = img
+            self._preview_refresh()
+        self.win.after(250, grab)
+
+    def _preview_schedule(self):
+        if self._prev_img is None:
+            return
+        if self._prev_job:
+            self.win.after_cancel(self._prev_job)
+        self._prev_job = self.win.after(400, self._preview_refresh)
+
+    @staticmethod
+    def _fit(img, max_w=600, max_h=130):
+        k = min(max_w / img.width, max_h / img.height, 1.0)
+        return img.resize((max(1, int(img.width * k)), max(1, int(img.height * k))))
+
+    def _preview_refresh(self):
+        from PIL import Image, ImageTk
+        from . import imgfilter
+        self._prev_job = None
+        src = self._prev_img
+        if src is None or not self.win.winfo_exists():
+            return
+        try:
+            scale = float(self.upscale.get())
+        except (tk.TclError, ValueError, AttributeError):
+            scale = 1.0
+        big = src.resize((int(src.width * scale), int(src.height * scale)), Image.LANCZOS) \
+            if scale > 1 else src
+        out = imgfilter.apply(big, self._filter_values())
+        shown = self._fit(src)
+        self._prev_scale = src.width / shown.width
+        self._tk_orig = ImageTk.PhotoImage(shown)
+        self._tk_out = ImageTk.PhotoImage(self._fit(out.convert("RGB")))
+        self.f_orig.configure(image=self._tk_orig)
+        self.f_out.configure(image=self._tk_out)
+        self.f_text.configure(text="Đang đọc chữ…")
+        if "ocr" in self.hooks:
+            cfg = dict(self.cfg)
+            cfg.update(source_lang=self.src.get(), ocr_engine=self.engine.get(),
+                       tesseract_cmd=self.tess.get().strip())
+            self.hooks["ocr"](out, cfg, self._preview_text)
+
+    def _preview_text(self, text):
+        if self.win.winfo_exists():
+            self.f_text.configure(text="Chữ đọc được: " + (text.replace("\n", " / ") or "(không đọc được chữ nào)"))
+
+    def _preview_pick_color(self, e):
+        if self._prev_img is None:
+            return
+        x = min(self._prev_img.width - 1, int(e.x * self._prev_scale))
+        y = min(self._prev_img.height - 1, int(e.y * self._prev_scale))
+        r, g, b = self._prev_img.convert("RGB").getpixel((x, y))[:3]
+        c = f"#{r:02X}{g:02X}{b:02X}"
+        self.f_color.set(c)
+        self._f_color_btn.configure(bg=c, activebackground=c)
+        self.f_color_on.set(True)
+        self.f_status.configure(text=f"Đã lấy màu chữ {c}")
+
     def _tab_advanced(self, f):
         self._nums = {}
         self._num(f, 0, "Ngưỡng thay đổi", "change_pixels", 0.0001, 0, 5, 0.01,
@@ -547,6 +683,7 @@ class SettingsWindow:
             v = min(hi, max(lo, float(var.get()))) / scale
             c[key] = int(round(v)) if is_int else v
         c["debug_log"] = bool(self.debug_log.get())
+        c["ocr_filter"] = self._filter_values()
         c["upscale"] = float(self.upscale.get())
         c["translator"] = self.translator.get()
         c["deepl_api_key"] = self.deepl_key.get().strip()
