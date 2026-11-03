@@ -20,8 +20,12 @@ def _blend(c1: str, c2: str, t: float) -> str:
 
 
 class Overlay:
-    def __init__(self, root: tk.Tk, cfg: dict, on_menu, on_geometry=None):
+    def __init__(self, root: tk.Tk, cfg: dict, on_menu, on_geometry=None, lookup=None):
         o = self.cfg = cfg["overlay"]
+        self.lookup = lookup if cfg.get("word_lookup", True) else None   # lookup(tu, callback)
+        self._hover_word = None
+        self._hover_job = None
+        self._tip = None
         self.on_menu = on_menu               # on_menu(command_name)
         self.on_geometry = on_geometry       # goi khi nguoi dung keo/doi kich thuoc xong
         self.entries: list[tuple[str, str]] = []
@@ -72,6 +76,10 @@ class Overlay:
         self.text.tag_configure("orig", foreground=_blend(fg, bg, 0.6),
                                 font=(family, max(8, size - 3)))
         self.text.tag_raise("orig")
+        self.text.tag_configure("hover", underline=True, foreground=_blend(fg, "#4c9aff", 0.5))
+        self.text.tag_raise("hover")
+        self.text.bind("<Motion>", self._hover)
+        self.text.bind("<Leave>", lambda e: self._hover_clear())
         self.text.configure(state="disabled")
         # Keo bat ky cho nao tren khung de di chuyen (copy chu qua menu chuot phai)
         self.text.bind("<ButtonPress-1>", lambda e: (self._start_move(e), "break")[1])
@@ -140,6 +148,7 @@ class Overlay:
         self.set_geometry(x, y, width, height)
 
     def _start_move(self, e):
+        self._hover_clear()
         self._dx, self._dy = e.x_root - self.win.winfo_x(), e.y_root - self.win.winfo_y()
 
     def _move(self, e):
@@ -167,6 +176,78 @@ class Overlay:
         self.set_status(f"độ trong suốt {round((1 - self.cfg['opacity']) * 100)}%")
         self._changed()      # luu lai
         return "break"
+
+    # --- tra tung tu khi re chuot vao chu goc ---
+    def _hover(self, e):
+        if not self.lookup:
+            return
+        t = self.text
+        idx = t.index(f"@{e.x},{e.y}")
+        if "orig" not in t.tag_names(idx):
+            self._hover_clear()
+            return
+        start, end = t.index(f"{idx} wordstart"), t.index(f"{idx} wordend")
+        word = t.get(start, end).strip(" .,!?;:\"'()[]{}…—-「」『』、。！？")
+        if not word or len(word) > 30 or not any(c.isalpha() for c in word):
+            self._hover_clear()
+            return
+        if word == self._hover_word:
+            return
+        self._hover_clear()
+        self._hover_word = word
+        t.tag_add("hover", start, end)
+        x, y = e.x_root, e.y_root
+        self._hover_job = self.win.after(
+            350, lambda: self.lookup(word, lambda res: self._show_tip(word, res, x, y)))
+
+    def _hover_clear(self):
+        if self._hover_job:
+            self.win.after_cancel(self._hover_job)
+            self._hover_job = None
+        self.text.tag_remove("hover", "1.0", "end")
+        self._hover_word = None
+        if self._tip is not None:
+            try:
+                self._tip.destroy()
+            except tk.TclError:
+                pass
+            self._tip = None
+
+    def _show_tip(self, word, result, x, y):
+        if word != self._hover_word or not self.win.winfo_exists():
+            return                       # chuot da roi khoi tu nay
+        if self._tip is not None:
+            self._tip.destroy()
+        o = self.cfg
+        fg, bg = o["fg"], _blend(o["bg"], "#ffffff", 0.12)
+        family = o["font_family"]
+        tip = self._tip = tk.Toplevel(self.win)
+        tip.overrideredirect(True)
+        tip.attributes("-topmost", True)
+        tip.configure(bg=bg)
+        tk.Label(tip, text=word, font=(family, 11, "bold"), fg=fg, bg=bg, anchor="w",
+                 padx=10, pady=(4)).pack(fill="x")
+        if isinstance(result, Exception):
+            lines = [("", f"Không tra được: {result}")]
+        else:
+            main, senses = result
+            lines = [("", main or "(không có nghĩa)")] + [(pos, ", ".join(terms)) for pos, terms
+                                                       in senses[:4] if terms]
+        for pos, text in lines:
+            row = tk.Frame(tip, bg=bg)
+            row.pack(fill="x", padx=10, pady=1)
+            if pos:
+                tk.Label(row, text=pos, font=(family, 9, "italic"), fg=_blend(fg, bg, 0.45),
+                         bg=bg).pack(side="left", anchor="n")
+            tk.Label(row, text=text, font=(family, 10), fg=fg, bg=bg, justify="left",
+                     wraplength=320).pack(side="left", anchor="w", padx=(6 if pos else 0, 0))
+        tk.Frame(tip, bg=bg, height=4).pack()
+        tip.update_idletasks()
+        sw, sh = tip.winfo_screenwidth(), tip.winfo_screenheight()
+        tx = min(x + 14, sw - tip.winfo_reqwidth() - 4)
+        ty = y + 18 if y + 18 + tip.winfo_reqheight() < sh else y - tip.winfo_reqheight() - 8
+        tip.geometry(f"+{tx}+{ty}")
+        exclude_from_capture(tip)
 
     # --- noi dung ---
     def latest(self):

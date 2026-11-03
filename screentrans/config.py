@@ -30,6 +30,7 @@ HOTKEY_NAMES = {
     "translate_once": "Dịch lại ngay",
     "toggle_overlay": "Ẩn / hiện khung dịch",
     "quick_translate": "Dịch nhanh một lần",
+    "edit_region": "Chỉnh vùng dịch",
     "toggle_click_through": "Chuột xuyên qua khung",
     "open_settings": "Mở cài đặt",
     "quit": "Thoát",
@@ -42,6 +43,7 @@ DEFAULTS = {
         "translate_once": "alt+e",
         "toggle_overlay": "alt+h",
         "quick_translate": "alt+d",
+        "edit_region": "alt+r",
         "toggle_click_through": "alt+c",
         "open_settings": "alt+s",
         "quit": "ctrl+alt+x",
@@ -73,6 +75,7 @@ DEFAULTS = {
     "unstable_max": 5,                # doc bao nhieu lan khac nhau lien tiep thi dich luon (0 = tat)
     "block_pause": 30,                # bi may dich chan thi nghi bao nhieu giay (gap doi moi lan)
     "history_max": 200,               # so cau giu trong lich su khung dich
+    "word_lookup": True,              # re chuot vao chu goc de tra tung tu
     "upscale": 2.0,                   # phong to anh truoc OCR, giup doc chu nho
     "overlay": {
         "position": "below",          # below | above | over

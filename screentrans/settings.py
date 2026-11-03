@@ -348,8 +348,13 @@ class SettingsWindow:
                   "và lăn chuột để chỉnh nhanh.")
 
         self.show_original = tk.BooleanVar(value=o["show_original"])
-        ttk.Checkbutton(f, text="Hiện cả chữ gốc phía trên bản dịch",
-                        variable=self.show_original).grid(row=8, column=1, sticky="w", pady=5)
+        self.word_lookup = tk.BooleanVar(value=self.cfg.get("word_lookup", True))
+        chk = ttk.Frame(f)
+        chk.grid(row=8, column=1, sticky="w", pady=5)
+        ttk.Checkbutton(chk, text="Hiện cả chữ gốc phía trên bản dịch",
+                        variable=self.show_original).pack(anchor="w")
+        ttk.Checkbutton(chk, text="Rê chuột vào chữ gốc để tra từng từ",
+                        variable=self.word_lookup).pack(anchor="w", pady=(4, 0))
 
         ttk.Label(f, text="Xem trước").grid(row=9, column=0, sticky="nw", pady=(8, 0))
         self.preview = tk.Label(f, text="Tiến sĩ, nhiệm vụ đã sẵn sàng.", anchor="w",
@@ -561,6 +566,7 @@ class SettingsWindow:
         o["fg"], o["bg"] = self.fg.get(), self.bg.get()
         o["opacity"] = max(0.2, min(1.0, 1 - round(float(self.transparency.get())) / 100))
         o["show_original"] = bool(self.show_original.get())
+        c["word_lookup"] = bool(self.word_lookup.get())
         c["hotkeys"] = {k: v.get() for k, v in self.hk_vars.items()}
         c["ui_theme"] = self.ui_theme.get()
         c["remember_games"] = bool(self.remember_games.get())

@@ -27,6 +27,8 @@ Yêu cầu: Windows 10 hoặc 11.
 - Tự làm sạch lỗi OCR và tách tên người nói, chỉ dịch lời thoại
 - Khung dịch kéo đi tự do, đổi kích thước, có lịch sử các câu trước
 - Chế độ chuột bấm xuyên qua: khung dịch đè lên game mà vẫn click vào game bình thường
+- Hiện viền vùng đang dịch và kéo cạnh, góc để chỉnh trực tiếp, không cần chọn lại từ đầu
+- Rê chuột vào chữ gốc để tra nghĩa từng từ theo loại từ
 - Nhớ vùng dịch theo từng app, kéo cửa sổ đi đâu vùng dịch theo đó, đổi kích thước cửa sổ thì vùng dịch co giãn theo
 - Chỉ dịch khi app đang ở phía trước, thu nhỏ hoặc chuyển cửa sổ thì tự dừng
 - Giao diện Sáng / Tối, tùy chỉnh phông chữ, màu, độ trong suốt
@@ -41,6 +43,7 @@ Yêu cầu: Windows 10 hoặc 11.
 | `Alt + D` | Dịch nhanh một lần: khoanh vùng, xem bản dịch rồi thôi |
 | `Alt + H` | Ẩn / hiện khung dịch |
 | `Alt + C` | Bật / tắt chuột bấm xuyên qua khung dịch |
+| `Alt + R` | Hiện viền vùng đang dịch để kéo chỉnh; bấm lại hoặc `Enter` để lưu, `Esc` để hủy |
 | `Alt + S` | Mở cài đặt |
 | `Ctrl + Alt + X` | Thoát |
 

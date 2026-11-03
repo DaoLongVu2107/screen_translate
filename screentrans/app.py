@@ -10,6 +10,7 @@ from tkinter import messagebox
 from . import config, theme
 from .overlay import Overlay
 from .quick import QuickPopup
+from .region_editor import RegionEditor
 from .single_instance import SingleInstance
 from .selector import RegionSelector
 from .settings import SettingsWindow
@@ -37,6 +38,8 @@ class App:
         self.settings = None
         self.user_hidden = False           # nguoi dung tu an khung -> khong tu hien lai
         self.quick_popup = None
+        self.editor = None                 # dang chinh vung (vien xanh)
+        self._lookup = None
         # Game dang gan voi vung dich (de nho vung va bam theo cua so game)
         self.game_hwnd = self.game_exe = self.game_origin = self.game_size = None
         self.game_base = (None, None)
@@ -72,7 +75,8 @@ class App:
         self.root.after(50, self._pump)
 
     def _new_overlay(self):
-        return Overlay(self.root, self.cfg, on_menu=self.post, on_geometry=self._on_overlay_moved)
+        return Overlay(self.root, self.cfg, on_menu=self.post, on_geometry=self._on_overlay_moved,
+                       lookup=self._lookup_word)
 
     def _new_worker(self):
         w = TranslateWorker(
@@ -214,7 +218,7 @@ class App:
         self.root.after(500, self._watch_games)
 
     def _watch_games_once(self):
-        if not winutil.IS_WIN or self.selecting:
+        if not winutil.IS_WIN or self.selecting or self.editor:
             return
         hwnd = self.game_hwnd
         if hwnd:
@@ -269,7 +273,7 @@ class App:
     def _can_capture(self) -> bool:
         """Goi tu luong dich ngay truoc khi chup / gui dich: game dang gan ma bi che
         hoac thu nho thi khong chup, tranh dich nham chu cua cua so khac."""
-        if self.selecting:               # dang khoanh vung: man hinh bi lop chon vung phu mo
+        if self.selecting or self.editor:   # dang khoanh / chinh vung
             return False
         hwnd = self.game_hwnd
         if not hwnd or not winutil.IS_WIN:
@@ -322,6 +326,57 @@ class App:
         if self.game_suspended:          # khong chup khi game dang bi che / thu nho
             return
         self.overlay.set_status("↻ đang dịch lại…")
+        self.worker.translate_once()
+
+    # --- tra tung tu ---
+    def _lookup_word(self, word, callback):
+        cfg = self.cfg
+
+        def work():
+            try:
+                if self._lookup is None:
+                    from .config import lang_info
+                    from .lookup import WordLookup
+                    self._lookup = WordLookup(lang_info(cfg["source_lang"])[3],
+                                              lang_info(cfg["target_lang"])[3])
+                result = self._lookup.lookup(word)
+            except Exception as e:
+                log.info("Tra tu '%s' that bai: %s", word, e)
+                result = e
+            self.post("lookup_result", callback, result)
+        threading.Thread(target=work, daemon=True).start()
+
+    def cmd_lookup_result(self, callback, result):
+        callback(result)
+
+    # --- chinh vung truc tiep ---
+    def cmd_edit_region(self):
+        if self.editor:                  # bam lai phim tat -> luu
+            self.editor.finish(True)
+            return
+        if not self.region:
+            return self.cmd_select_region()
+        if self.selecting:
+            return
+        self.editor = RegionEditor(self.root, self.region, self._on_region_edited,
+                                   hotkey=self.cfg["hotkeys"].get("edit_region", ""))
+
+    def _on_region_edited(self, region):
+        self.editor = None
+        if not region:
+            return
+        self.region = region
+        self.worker.move_region(region)
+        # Neu vung dang gan voi mot app: luu vung moi cho app do
+        if self.game_hwnd and self.game_origin and self.game_exe in self.cfg["profiles"]:
+            ox, oy = self.game_origin
+            rel = (region[0] - ox, region[1] - oy, region[2], region[3])
+            self.game_base = (rel, self.game_size)
+            prof = self.cfg["profiles"][self.game_exe]
+            prof["region"] = list(rel)
+            prof["client"] = list(self.game_size) if self.game_size else None
+            config.save(self.cfg)
+        self.overlay.set_status("vùng dịch đã cập nhật")
         self.worker.translate_once()
 
     # --- dich nhanh mot lan ---
@@ -378,6 +433,8 @@ class App:
     def _on_quick_closed(self, popup):
         if self.quick_popup is popup:
             self.quick_popup = None
+        self.editor = None                 # dang chinh vung (vien xanh)
+        self._lookup = None
 
     def _show_overlay(self):
         """Hien khung dich, tru khi nguoi dung da tu an."""
@@ -432,6 +489,7 @@ class App:
         deleted = cfg.pop("_deleted_profiles", None)
         if deleted is not None:   # giu cac game vua luu trong luc cua so cai dat dang mo
             cfg["profiles"] = {k: v for k, v in self.cfg["profiles"].items() if k not in deleted}
+        self._lookup = None              # ngon ngu co the da doi
         if cfg.get("ui_theme") != self.cfg.get("ui_theme"):
             theme.apply(self.root, cfg.get("ui_theme", "light"))
         self.cfg = cfg
@@ -508,6 +566,7 @@ class App:
             item("quick_translate"),
             item("toggle_overlay"),
             item("toggle_click_through"),
+            item("edit_region"),
             pystray.MenuItem("Quên vùng của app hiện tại", lambda: self.post("forget_game")),
             pystray.Menu.SEPARATOR,
             item("open_settings"),
