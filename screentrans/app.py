@@ -46,6 +46,7 @@ class App:
         self.auto_hidden = False           # tu an vi vung het chu
         self.quick_popup = None
         self.hotkey_errors = []
+        self._installing_ocr = False
         self.editor = None                 # dang chinh vung (vien xanh)
         self._lookup = None
         # Game dang gan voi vung dich (de nho vung va bam theo cua so game)
@@ -95,6 +96,7 @@ class App:
             on_status=lambda msg: self.post("status", msg),
             gate=self._can_capture,
             on_empty=lambda: self.post("empty"),
+            on_ocr_missing=lambda tag: self.post("ocr_missing", tag),
         )
         w.start()
         return w
@@ -151,6 +153,7 @@ class App:
         ox, oy = origin
         size = winutil.client_size(hwnd)
         self._attach_game(hwnd, exe, origin, (left - ox, top - oy, w, h), size)
+        winutil.focus_window(hwnd)        # tra focus cho app vua chon vung, tranh bi tam dung ngay
         ow = self.overlay.geometry()
         self.cfg["profiles"][exe] = {
             "title": winutil.window_title(hwnd),
@@ -389,6 +392,56 @@ class App:
         if messagebox.askyesno("Screen Translator", t("Có bản mới {tag}. Mở trang tải về?").format(tag=tag)):
             webbrowser.open(url)
 
+    # --- thieu goi nhan dang chu cua Windows ---
+    def cmd_ocr_missing(self, tag):
+        from .config import LANGUAGES
+        from .ocr import capability_name
+        name = next((t(v[0]) for v in LANGUAGES.values() if v[1] == tag), tag)
+        cap = capability_name(tag)
+        self.overlay.set_status("⚠ " + t("thiếu gói nhận dạng chữ {lang}").format(lang=name))
+        self.overlay.show()
+        if not cap:
+            messagebox.showwarning("Screen Translator", t(
+                "Windows OCR không hỗ trợ {lang}. Hãy chọn Tesseract trong Cài đặt → Nhận dạng.").format(lang=name))
+            return
+        if self._installing_ocr:
+            return
+        if messagebox.askyesno("Screen Translator", t(
+                "Windows chưa có gói nhận dạng chữ cho {lang}, nên chưa đọc được chữ.\n\n"
+                "Cài ngay? Windows sẽ hỏi quyền quản trị, cần mạng và mất vài phút.").format(lang=name)):
+            self.install_ocr(tag)
+
+    def install_ocr(self, tag, done=None):
+        from . import sysutil
+        from .ocr import capability_name
+        cap = capability_name(tag)
+        if not cap or self._installing_ocr:
+            return
+        self._installing_ocr = True
+        self.overlay.set_status("⏳ " + t("đang cài gói nhận dạng chữ…"))
+
+        def work():
+            sysutil.install_ocr_language(cap)
+            try:
+                from .ocr import resolve_windows_lang
+                ok = bool(resolve_windows_lang(tag))
+            except Exception:
+                ok = False
+            self.post("call", self._ocr_installed, tag, ok, done)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _ocr_installed(self, tag, ok, done=None):
+        self._installing_ocr = False
+        if ok:
+            self.overlay.set_status(t("đã cài xong gói nhận dạng chữ"))
+            self.apply_config(self.cfg)          # tao lai luong dich voi goi moi
+        else:
+            messagebox.showwarning("Screen Translator", t(
+                "Chưa cài được gói nhận dạng chữ. Thử lại, hoặc vào Settings → Time & language → "
+                "Language & region → chọn ngôn ngữ → Language options để tải."))
+        if done:
+            done(ok)
+
     # --- sua chu OCR roi dich lai ---
     def cmd_edit_ocr(self):
         if not self.overlay.entries:
@@ -496,6 +549,7 @@ class App:
             prof["client"] = list(self.game_size) if self.game_size else None
             config.save(self.cfg)
         self.overlay.set_status(t("vùng dịch đã cập nhật"))
+        winutil.focus_window(self.game_hwnd)
         self.worker.translate_once()
 
     # --- dich nhanh mot lan ---
@@ -539,6 +593,9 @@ class App:
                     return
                 original, translated = Translator(cfg).translate_dialogue(raw)
                 self.post("quick_result", popup, original, translated)
+            except ocr_mod.OcrLanguageMissing as e:
+                self.post("quick_error", popup, t("Windows chưa có gói nhận dạng chữ cho ngôn ngữ này."))
+                self.post("ocr_missing", e.tag)
             except Exception as e:
                 log.exception("Dich nhanh that bai")
                 self.post("quick_error", popup, str(e))
@@ -556,6 +613,7 @@ class App:
         if self.quick_popup is popup:
             self.quick_popup = None
         self.hotkey_errors = []
+        self._installing_ocr = False
         self.editor = None                 # dang chinh vung (vien xanh)
         self._lookup = None
 
@@ -662,7 +720,8 @@ class App:
                                        resume_hotkeys=self.register_hotkeys,
                                        hooks={"capture": self._capture_region,
                                               "ocr": self._ocr_async,
-                                              "hotkey_errors": self.hotkey_errors})
+                                              "hotkey_errors": self.hotkey_errors,
+                                              "install_ocr": self.install_ocr})
 
     def apply_config(self, cfg):
         """Luu cai dat va ap dung ngay, khong can khoi dong lai."""

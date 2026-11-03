@@ -363,4 +363,24 @@ EN = {
     "Phụ đề vàng": "Yellow subtitle",
     "Xanh đêm": "Night blue",
     "Xanh lá": "Green",
+    # --- Goi nhan dang chu cua Windows ---
+    "đang cài gói nhận dạng chữ…": "installing the OCR language pack…",
+    "đã cài xong gói nhận dạng chữ": "OCR language pack installed",
+    "thiếu gói nhận dạng chữ {lang}": "missing the {lang} OCR language pack",
+    "Chưa cài được gói nhận dạng chữ. Thử lại, hoặc vào Settings → Time & language → Language & region → chọn ngôn ngữ → Language options để tải.":
+        "The OCR language pack was not installed. Try again, or go to Settings → Time & language → Language & region "
+        "→ pick the language → Language options to download it.",
+    "Windows chưa có gói nhận dạng chữ cho {lang}, nên chưa đọc được chữ.\n\nCài ngay? Windows sẽ hỏi quyền quản trị, cần mạng và mất vài phút.":
+        "Windows has no OCR language pack for {lang}, so no text can be read yet.\n\n"
+        "Install it now? Windows will ask for administrator permission; it needs internet and takes a few minutes.",
+    "Windows OCR không hỗ trợ {lang}. Hãy chọn Tesseract trong Cài đặt → Nhận dạng.":
+        "Windows OCR doesn't support {lang}. Choose Tesseract in Settings → OCR.",
+    "Windows chưa có gói nhận dạng chữ cho ngôn ngữ này.": "Windows has no OCR language pack for this language yet.",
+    "Gói Windows OCR": "Windows OCR pack",
+    "Windows cần gói nhận dạng chữ riêng cho từng ngôn ngữ. Bấm để cài, Windows sẽ hỏi quyền quản trị.":
+        "Windows needs a separate OCR pack for each language. Click to install; Windows will ask for administrator permission.",
+    "Cài gói nhận dạng chữ cho ngôn ngữ gốc": "Install the OCR pack for the source language",
+    "Đang cài… hãy đồng ý khi Windows hỏi quyền.": "Installing… accept when Windows asks for permission.",
+    "Đã cài xong.": "Installed.",
+    "Chưa cài được.": "Not installed.",
 }

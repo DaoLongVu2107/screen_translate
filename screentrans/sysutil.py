@@ -76,6 +76,24 @@ def apply_proxy(url: str):
         _saved_env = None
 
 
+def install_ocr_language(capability: str) -> bool:
+    """Cai goi nhan dang chu cua Windows (hoi quyen quan tri). Chay xong moi tra ve.
+    True neu lenh chay xong (khong chac da cai duoc, kiem tra lai sau)."""
+    if sys.platform != "win32" or not re.fullmatch(r"Language\.OCR~~~[A-Za-z-]+~0\.0\.1\.0", capability):
+        return False
+    import subprocess
+    inner = f"Add-WindowsCapability -Online -Name '{capability}'"
+    cmd = ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command",
+           f"Start-Process powershell -Verb RunAs -Wait -WindowStyle Normal "
+           f"-ArgumentList '-NoProfile','-Command',\"{inner}\""]
+    try:
+        subprocess.run(cmd, check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return True
+    except Exception:
+        log.exception("Khong chay duoc lenh cai goi OCR")
+        return False
+
+
 def _ver(tag: str):
     """'v1.2.3' -> (1, 2, 3)."""
     nums = [int(n) for n in re.findall(r"\d+", tag or "")[:3]]

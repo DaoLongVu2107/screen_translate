@@ -137,6 +137,15 @@ class SettingsWindow:
         ttk.Button(box, text="…", width=3, command=self._browse_tesseract).pack(side="left", padx=(4, 0))
         self._row(f, 1, t("Đường dẫn tesseract.exe"), box)
 
+        if "install_ocr" in self.hooks:
+            ibox = ttk.Frame(f)
+            ttk.Button(ibox, text=t("Cài gói nhận dạng chữ cho ngôn ngữ gốc"),
+                       command=self._install_ocr).pack(side="left")
+            self.ocr_status = ttk.Label(ibox, text="", foreground=theme.palette()["hint"])
+            self.ocr_status.pack(side="left", padx=8)
+            self._row(f, 10, t("Gói Windows OCR"), ibox,
+                      t("Windows cần gói nhận dạng chữ riêng cho từng ngôn ngữ. Bấm để cài, Windows sẽ hỏi quyền quản trị."))
+
         self.interval = tk.IntVar(value=self.cfg["interval_ms"])
         self._row(f, 2, t("Tần suất quét"),
                   ttk.Spinbox(f, from_=100, to=5000, increment=100, textvariable=self.interval, width=8),
@@ -146,6 +155,18 @@ class SettingsWindow:
         self._row(f, 6, t("Phóng to ảnh trước khi đọc"),
                   ttk.Spinbox(f, from_=1, to=4, increment=0.5, textvariable=self.upscale, width=8),
                   t("Giúp đọc chữ nhỏ chính xác hơn."))
+
+    def _install_ocr(self):
+        from .config import lang_info
+        tag = lang_info(self.src.get())[1]
+        self.ocr_status.configure(text=t("Đang cài… hãy đồng ý khi Windows hỏi quyền."))
+
+        def done(ok):
+            if self.win.winfo_exists():
+                self.ocr_status.configure(text=t("Đã cài xong.") if ok else t("Chưa cài được."))
+                from .validate import validate
+                self._mark_problems(validate(self.cfg, deep=True))
+        self.hooks["install_ocr"](tag, done)
 
     def _tab_translator(self, f):
         from .translator import engine_chain

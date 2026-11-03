@@ -63,8 +63,8 @@ def validate(cfg: dict, deep: bool = True, hotkey_errors=None):
                 add(t("Nhận dạng"), t("Không chạy được Tesseract: {e}").format(e=e))
     elif deep and sys.platform == "win32":
         try:
-            available = windows_ocr_languages()
-            if not _has_lang(available, win_lang):
+            from .ocr import resolve_windows_lang
+            if not resolve_windows_lang(win_lang):
                 add(t("Nhận dạng"), t("Windows chưa cài gói nhận dạng chữ cho {lang}. Vào Settings → Time & language → "
                                      "Language & region → Add a language để thêm.").format(lang=t(lang_name)))
         except Exception as e:

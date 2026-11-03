@@ -54,7 +54,8 @@ def _key(raw: str, lang: str, subs=None) -> str:
 
 
 class TranslateWorker(threading.Thread):
-    def __init__(self, cfg: dict, on_result, on_error, on_status=None, gate=None, on_empty=None):
+    def __init__(self, cfg: dict, on_result, on_error, on_status=None, gate=None, on_empty=None,
+                 on_ocr_missing=None):
         super().__init__(daemon=True)
         self.cfg = cfg
         self.on_result = on_result     # on_result(original, translated)
@@ -62,6 +63,8 @@ class TranslateWorker(threading.Thread):
         self.on_status = on_status or (lambda msg: None)
         self.gate = gate or (lambda: True)   # tra ve False -> khong chup / khong dich luc nay
         self.on_empty = on_empty or (lambda: None)   # vung khong con chu
+        self.on_ocr_missing = on_ocr_missing          # thieu goi OCR cua Windows
+        self._last_error = None
         self._empty_reads = 0
         self._empty_sent = False
         self._candidate = None         # chu OCR vua doc, cho lan doc sau xac nhan
@@ -75,7 +78,7 @@ class TranslateWorker(threading.Thread):
         self.auto = False
         self._once = False
         self._wake = threading.Event()
-        self._stop = threading.Event()
+        self._stop_evt = threading.Event()
         self._last_sig = None
         self._last_text = None
 
@@ -106,7 +109,7 @@ class TranslateWorker(threading.Thread):
         self._wake.set()
 
     def stop(self):
-        self._stop.set()
+        self._stop_evt.set()
         self._wake.set()
 
     # --- vong lap ---
@@ -125,6 +128,11 @@ class TranslateWorker(threading.Thread):
         try:
             engine = ocr_mod.create(self.cfg)
             translator = Translator(self.cfg)
+        except ocr_mod.OcrLanguageMissing as e:
+            log.warning("Windows chua cai goi OCR cho %s", e.tag)
+            if self.on_ocr_missing:
+                self.on_ocr_missing(e.tag)
+            return
         except Exception as e:
             log.exception("Khoi tao OCR/dich that bai")
             self.on_error(t("Không khởi tạo được OCR hoặc máy dịch:") + f"\n{e}")
@@ -133,10 +141,10 @@ class TranslateWorker(threading.Thread):
         log.info("Bat dau dich: OCR=%s, may dich=%s, chu ky=%sms",
                  self.cfg["ocr_engine"], self.cfg["translator"], self.cfg["interval_ms"])
         with mss.mss() as sct:
-            while not self._stop.is_set():
+            while not self._stop_evt.is_set():
                 self._wake.wait(interval if self.auto else None)
                 self._wake.clear()
-                if self._stop.is_set():
+                if self._stop_evt.is_set():
                     break
                 if not self.region or not (self.auto or self._once):
                     continue
@@ -146,6 +154,7 @@ class TranslateWorker(threading.Thread):
                 try:
                     self._tick(sct, engine, translator, forced)
                     self._backoff = 0.0
+                    self._last_error = None
                 except Exception as e:
                     if _is_rate_limit(e):
                         # bi chan vi goi qua nhieu: nghi 30s, 60s, 120s... (toi da 5 phut)
@@ -155,7 +164,10 @@ class TranslateWorker(threading.Thread):
                         self._last_text = self._last_sig = None
                         log.warning("May dich bao goi qua nhieu, nghi %ss", self._backoff)
                         self.on_status("⏳ " + t("máy dịch tạm chặn, thử lại sau {n}s").format(n=int(self._backoff)))
+                    elif str(e) == self._last_error:     # loi lap lai: khong ghi lai ca traceback
+                        log.debug("Loi lap lai: %s", e)
                     else:
+                        self._last_error = str(e)
                         log.exception("Loi khi dich")
                         self.on_error(str(e))
 

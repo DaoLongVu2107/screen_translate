@@ -127,6 +127,15 @@ def client_origin(hwnd):
     return pt.x, pt.y
 
 
+def focus_window(hwnd):
+    """Dua cua so len phia truoc (sau khi chon vung, lop chon vung da lay mat focus)."""
+    if IS_WIN and hwnd:
+        try:
+            _user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+
+
 def window_alive(hwnd) -> bool:
     return bool(IS_WIN and hwnd and _user32.IsWindow(hwnd))
 
