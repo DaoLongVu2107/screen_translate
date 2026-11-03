@@ -26,6 +26,7 @@ Yêu cầu: Windows 10 hoặc 11.
 - Máy dịch: Google Dịch miễn phí, Google Cloud Translation, DeepL, hoặc AI (Claude, ChatGPT, Gemini, Grok) bằng API key của bạn
 - Tự làm sạch lỗi OCR và tách tên người nói, chỉ dịch lời thoại
 - Khung dịch kéo đi tự do, đổi kích thước, có lịch sử các câu trước
+- Chế độ chuột bấm xuyên qua: khung dịch đè lên game mà vẫn click vào game bình thường
 - Nhớ vùng dịch theo từng app, kéo cửa sổ đi đâu vùng dịch theo đó, đổi kích thước cửa sổ thì vùng dịch co giãn theo
 - Chỉ dịch khi app đang ở phía trước, thu nhỏ hoặc chuyển cửa sổ thì tự dừng
 - Giao diện Sáng / Tối, tùy chỉnh phông chữ, màu, độ trong suốt
@@ -39,6 +40,7 @@ Yêu cầu: Windows 10 hoặc 11.
 | `Alt + E` | Dịch lại ngay |
 | `Alt + D` | Dịch nhanh một lần: khoanh vùng, xem bản dịch rồi thôi |
 | `Alt + H` | Ẩn / hiện khung dịch |
+| `Alt + C` | Bật / tắt chuột bấm xuyên qua khung dịch |
 | `Alt + S` | Mở cài đặt |
 | `Ctrl + Alt + X` | Thoát |
 

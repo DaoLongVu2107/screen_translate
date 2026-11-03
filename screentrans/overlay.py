@@ -3,7 +3,7 @@ kich thuoc. Cau moi hien o duoi cung, cau cu bi day len tren thanh lich su (lan 
 Keo bat ky cho nao tren khung de di chuyen."""
 import tkinter as tk
 
-from .winutil import exclude_from_capture, round_corners
+from .winutil import exclude_from_capture, round_corners, set_click_through
 
 MIN_W, MIN_H = 180, 70
 MAX_ENTRIES = 200
@@ -53,6 +53,8 @@ class Overlay:
         close.bind("<Enter>", lambda e: close.configure(fg="#ffffff", bg="#c42b1c"))
         close.bind("<Leave>", lambda e: close.configure(fg="#9a9a9a", bg=bar_bg))
         self._bar_bg = bar_bg
+        self.ct_label = tk.Label(self.bar, text="", font=(family, 8), fg="#5aa9f0", bg=bar_bg, padx=6)
+        self.ct_label.pack(side="right")
         for wid in (self.bar, self.status):
             wid.bind("<ButtonPress-1>", self._start_move)
             wid.bind("<B1-Motion>", self._move)
@@ -96,6 +98,7 @@ class Overlay:
         m.add_command(label="Hiện / ẩn chữ gốc", command=self._toggle_original)
         m.add_command(label="Xóa lịch sử", command=self.clear)
         m.add_separator()
+        m.add_command(label="Chuột bấm xuyên qua khung", command=lambda: on_menu("toggle_click_through"))
         m.add_command(label="Quên vùng của app này", command=lambda: on_menu("forget_game"))
         m.add_command(label="Cài đặt…", command=lambda: on_menu("open_settings"))
         m.add_command(label="Ẩn khung", command=lambda: on_menu("hide_overlay"))
@@ -106,6 +109,8 @@ class Overlay:
 
         exclude_from_capture(w)
         round_corners(w)
+        self.click_through = False
+        self.set_click_through(bool(o.get("click_through")))
 
     # --- vi tri & kich thuoc ---
     def geometry(self):
@@ -156,6 +161,8 @@ class Overlay:
         step = 0.05 if e.delta > 0 else -0.05
         self.cfg["opacity"] = round(max(0.2, min(1.0, self.cfg["opacity"] + step)), 2)
         self.win.attributes("-alpha", self.cfg["opacity"])
+        if self.click_through:
+            set_click_through(self.win, True)
         self.set_status(f"độ trong suốt {round((1 - self.cfg['opacity']) * 100)}%")
         self._changed()      # luu lai
         return "break"
@@ -224,10 +231,19 @@ class Overlay:
     def _popup(self, e):
         self.menu.tk_popup(e.x_root, e.y_root)
 
+    def set_click_through(self, enabled: bool):
+        """Chuot bam xuyen qua khung dich xuong app ben duoi."""
+        self.click_through = enabled
+        self.cfg["click_through"] = enabled
+        set_click_through(self.win, enabled)
+        self.ct_label.configure(text="chuột xuyên qua" if enabled else "")
+
     def show(self):
         self.win.deiconify()
         self.win.attributes("-topmost", True)
         self.visible = True
+        if self.click_through:           # dam bao van giu che do sau khi hien lai
+            set_click_through(self.win, True)
 
     def hide(self):
         self.win.withdraw()

@@ -391,6 +391,14 @@ class App:
             self.user_hidden = False
             self.overlay.show()
 
+    def cmd_toggle_click_through(self):
+        on = not self.overlay.click_through
+        self.overlay.set_click_through(on)
+        config.save(self.cfg)
+        hk = self.cfg["hotkeys"].get("toggle_click_through") or "menu ở khay hệ thống"
+        self.overlay.set_status(f"chuột xuyên qua: bật, tắt bằng {hk}" if on else "chuột xuyên qua: tắt")
+        self._show_overlay()
+
     def cmd_hide_overlay(self):
         self.user_hidden = True
         self.overlay.hide()
@@ -499,6 +507,7 @@ class App:
             item("translate_once"),
             item("quick_translate"),
             item("toggle_overlay"),
+            item("toggle_click_through"),
             pystray.MenuItem("Quên vùng của app hiện tại", lambda: self.post("forget_game")),
             pystray.Menu.SEPARATOR,
             item("open_settings"),

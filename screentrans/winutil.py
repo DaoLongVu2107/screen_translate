@@ -170,3 +170,26 @@ def client_size(hwnd):
     if not _user32.GetClientRect(hwnd, ctypes.byref(rc)):
         return None
     return rc.right - rc.left, rc.bottom - rc.top
+
+
+# --- Chuot bam xuyen qua cua so ---
+GWL_EXSTYLE = -20
+WS_EX_LAYERED = 0x00080000
+WS_EX_TRANSPARENT = 0x00000020
+
+
+def set_click_through(tk_window, enabled: bool) -> bool:
+    """Bat / tat che do chuot bam xuyen qua cua so (WS_EX_TRANSPARENT)."""
+    if not IS_WIN:
+        return False
+    try:
+        hwnd = _hwnd(tk_window)
+        style = _user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        if enabled:
+            style |= WS_EX_LAYERED | WS_EX_TRANSPARENT
+        else:
+            style &= ~WS_EX_TRANSPARENT
+        _user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+        return True
+    except Exception:
+        return False

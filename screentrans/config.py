@@ -30,6 +30,7 @@ HOTKEY_NAMES = {
     "translate_once": "Dịch lại ngay",
     "toggle_overlay": "Ẩn / hiện khung dịch",
     "quick_translate": "Dịch nhanh một lần",
+    "toggle_click_through": "Chuột xuyên qua khung",
     "open_settings": "Mở cài đặt",
     "quit": "Thoát",
 }
@@ -41,6 +42,7 @@ DEFAULTS = {
         "translate_once": "alt+e",
         "toggle_overlay": "alt+h",
         "quick_translate": "alt+d",
+        "toggle_click_through": "alt+c",
         "open_settings": "alt+s",
         "quit": "ctrl+alt+x",
     },
@@ -77,6 +79,7 @@ DEFAULTS = {
         "min_width": 320,
         "height": 160,
         "show_original": False,
+        "click_through": False,       # chuot bam xuyen qua khung dich
     },
     "ui_theme": "light",              # giao dien cua so cai dat: light | dark
     "remember_games": True,           # nho vung dich theo tung game (theo ten file exe)
